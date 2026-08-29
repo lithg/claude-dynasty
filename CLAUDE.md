@@ -104,6 +104,24 @@ linha, **Ctrl+Enter envia** como bracketed paste (`ESC[200~ … ESC[201~`) + `\r
 ponta do texto; Ctrl+V com imagem e arrastar arquivo colam caminhos como no terminal; Esc devolve
 o foco ao xterm; **Ctrl+I** traz o foco de volta para a caixa.
 
+## Shift+Enter (quebra de linha)
+O xterm mandaria só `CR` no Shift+Enter — o Claude Code lê isso como "enviar". `TerminalView`
+intercepta Shift+Enter/Alt+Enter e escreve **ESC+CR** (`\x1b\r`), que é o que o `/terminal-setup`
+configura em iTerm/VS Code. Verificado num PTY: o prompt passa a mostrar duas linhas sem enviar.
+
+## Sugestão de resposta (o "prompt pré-preenchido" do Warp)
+Botão ✨ na caixa de prompt / **Ctrl+Espaço**: `lastAssistantText()` lê a última fala do Claude no
+transcript e o main roda `claude -p "<instruções + mensagem>" --model haiku` com `cwd` numa pasta
+temporária (para não sujar o histórico do projeto). O texto volta **na caixa, sem enviar**. Só roda
+quando você pede — gasta cota. A busca no transcript tenta 512 KB de cauda e depois 4 MB: trechos
+com muita chamada de ferramenta empurram o último texto para longe do fim.
+
+## Teclas que o Claude Code já usa
+Medido num PTY (`ptytest/keys.mjs` do dia): **Ctrl+P é dele** (histórico de prompts, mostra `n/n`),
+por isso a paleta é **Ctrl+K**. Ctrl+K, Ctrl+F, Ctrl+I, Ctrl+E, Ctrl+Espaço e Ctrl+dígito não
+produzem nenhuma resposta do TUI — livres para o wrapper. Ctrl+G abre o editor externo e Shift+Tab
+cicla os modos: não usar.
+
 ## Busca no terminal
 Ctrl+F abre a barra (`@xterm/addon-search`): Enter próximo, Shift+Enter anterior, Esc fecha,
 contador `n/total`. `matchBackground`/`activeMatchBackground` só aceitam `#RRGGBB` (nada de rgba).
@@ -117,6 +135,8 @@ br.com.guilherme.wrapperclaude` (gravado via IPropertyStore no .lnk; sem isso o 
 ## Atalhos no app
 Ctrl+T (ou o "+" ao lado das abas) nova sessão Claude · Ctrl+W fecha aba · Ctrl+Tab alterna · Ctrl+B painel · Ctrl+, config ·
 Ctrl+F busca no terminal · Ctrl+I foca a caixa de prompt · Ctrl+Enter envia o prompt ·
+Ctrl+K paleta (sessões e projetos) · Ctrl+1..9 vai para a aba n · Ctrl+0 pula para a próxima sessão ociosa ·
+Ctrl+Espaço sugere a resposta · Shift+Enter quebra linha no terminal ·
 Ctrl+Shift+C/V copia/cola no terminal · botão do meio fecha aba.
 
 ## Regras

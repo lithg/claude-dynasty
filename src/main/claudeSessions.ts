@@ -176,6 +176,55 @@ function summarize(file: string, sessionId: string, mtime: number, size: number)
   return item
 }
 
+/**
+ * Último texto que o Claude escreveu na sessão (para sugerir a resposta do usuário).
+ * Lê só a cauda do transcript e pega a última linha `type:"assistant"` com bloco de texto.
+ */
+export function lastAssistantText(cwd: string, sessionId: string): string {
+  if (!cwd || !sessionId) return ''
+  const file = join(PROJECTS_DIR, slugForPath(cwd), `${sessionId}.jsonl`)
+  let st
+  try {
+    st = statSync(file)
+  } catch {
+    return ''
+  }
+  // trechos com muita chamada de ferramenta empurram o último texto para longe do fim:
+  // tenta uma janela pequena e só depois uma grande.
+  for (const window of [512 * 1024, 4 * 1024 * 1024]) {
+    const start = Math.max(0, st.size - window)
+    const text = scanAssistantText(readChunk(file, start, Math.min(st.size, window)))
+    if (text) return text
+    if (start === 0) break
+  }
+  return ''
+}
+
+/** Última mensagem do assistente com bloco de texto dentro de um pedaço de transcript. */
+function scanAssistantText(chunk: string): string {
+  const lines = chunk.split('\n')
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim()
+    if (!line.startsWith('{')) continue
+    let j: any
+    try {
+      j = JSON.parse(line)
+    } catch {
+      continue
+    }
+    if (j?.type !== 'assistant') continue
+    const content = j.message?.content
+    if (!Array.isArray(content)) continue
+    const text = content
+      .filter((c: any) => c?.type === 'text' && typeof c.text === 'string')
+      .map((c: any) => c.text)
+      .join('\n')
+      .trim()
+    if (text) return text.slice(-6000)
+  }
+  return ''
+}
+
 export function readHistory(projectPath: string, limit = 40): HistorySession[] {
   const dir = join(PROJECTS_DIR, slugForPath(projectPath))
   if (!existsSync(dir)) return []

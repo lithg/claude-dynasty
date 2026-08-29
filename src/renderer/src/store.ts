@@ -20,6 +20,7 @@ interface State {
   activeProject: string | null
   usage: UsageInfo | null
   settingsOpen: boolean
+  paletteOpen: boolean
   panelOpen: boolean
   showHidden: boolean
   filter: string
@@ -46,6 +47,7 @@ interface State {
   toggleRc: (id: string) => void
 
   setSettingsOpen: (v: boolean) => void
+  setPaletteOpen: (v: boolean) => void
   setPanelOpen: (v: boolean) => void
   setShowHidden: (v: boolean) => void
   setFilter: (v: string) => void
@@ -64,6 +66,7 @@ export const useStore = create<State>((set, get) => ({
   activeProject: null,
   usage: null,
   settingsOpen: false,
+  paletteOpen: false,
   panelOpen: true,
   showHidden: false,
   filter: '',
@@ -195,6 +198,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setSettingsOpen: (v) => set({ settingsOpen: v }),
+  setPaletteOpen: (v) => set({ paletteOpen: v }),
   setPanelOpen: (v) => set({ panelOpen: v }),
   setShowHidden: (v) => set({ showHidden: v }),
   setFilter: (v) => set({ filter: v }),

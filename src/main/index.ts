@@ -19,7 +19,7 @@ import type { AppConfig, LiveSession, SpawnClaudeOpts, SpawnShellOpts, TermTab, 
 import { resolveTheme } from '@shared/themes'
 import { getConfig, setConfig, configPath } from './config'
 import { listProjects, projectDetails } from './projects'
-import { LiveSessionWatcher, readHistory, readLiveSessions, transcriptExists } from './claudeSessions'
+import { LiveSessionWatcher, lastAssistantText, readHistory, readLiveSessions, transcriptExists } from './claudeSessions'
 import { PtyManager } from './pty'
 import { resolveClaudeBin } from './claudeBin'
 import { fetchUsage } from './usage'
@@ -430,6 +430,46 @@ function registerIpc(): void {
     writeFileSync(file, img.toPNG())
     return file
   })
+  /**
+   * Sugere a próxima mensagem do usuário a partir da última fala do Claude na sessão
+   * (o "prompt pré-preenchido" do Warp). Roda `claude -p` com Haiku num cwd temporário,
+   * para não sujar o histórico do projeto. Só quando o usuário pede — gasta cota.
+   */
+  ipcMain.handle(
+    'app:suggestReply',
+    (_e, cwd: string, sessionId: string): Promise<{ text?: string; error?: string }> => {
+      const last = lastAssistantText(cwd, sessionId)
+      if (!last) return Promise.resolve({ error: 'ainda não achei uma resposta do Claude nesta sessão' })
+      const bin = resolveClaudeBin()
+      const scratch = join(app.getPath('temp'), 'claude-wrapper')
+      mkdirSync(scratch, { recursive: true })
+      const instruction = [
+        'Abaixo está a última mensagem que um agente de programação enviou ao usuário.',
+        'Escreva a PRÓXIMA MENSAGEM DO USUÁRIO para esse agente, em português do Brasil:',
+        '1 ou 2 frases, direta, no imperativo, como o usuário responderia. Se o agente perguntou',
+        'algo ou ofereceu opções, escolha a mais provável e cite pelo nome o que foi oferecido.',
+        'Responda só com a mensagem pronta para enviar: sem aspas, sem preâmbulo, sem explicação,',
+        'e sem responder o que o agente perguntou como se você fosse o agente.',
+        '',
+        '=== MENSAGEM DO AGENTE ===',
+        last.slice(-3000),
+        '=== FIM DA MENSAGEM DO AGENTE ==='
+      ].join('\n')
+      return new Promise((resolve) => {
+        execFile(
+          bin.file,
+          [...bin.args, '-p', instruction, '--model', 'haiku'],
+          { cwd: scratch, windowsHide: true, timeout: 60_000, maxBuffer: 1024 * 1024 },
+          (err, stdout, stderr) => {
+            if (err) return resolve({ error: (stderr || err.message).trim().slice(0, 300) })
+            const text = stdout.trim()
+            resolve(text ? { text } : { error: 'o Claude não devolveu nada' })
+          }
+        )
+      })
+    }
+  )
+
   ipcMain.handle('app:showMain', () => showWindow())
   ipcMain.handle('app:hidePopup', () => hidePopup())
   ipcMain.on('popup:height', (_e, h: number) => placePopup(Math.ceil(h)))

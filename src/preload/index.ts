@@ -48,6 +48,8 @@ const api = {
     clipboardHasImage: (): Promise<boolean> => ipcRenderer.invoke('app:clipboardHasImage'),
     saveClipboardImage: (): Promise<string | null> => ipcRenderer.invoke('app:saveClipboardImage'),
     showMain: (): Promise<void> => ipcRenderer.invoke('app:showMain'),
+    suggestReply: (cwd: string, sessionId: string): Promise<{ text?: string; error?: string }> =>
+      ipcRenderer.invoke('app:suggestReply', cwd, sessionId),
     hidePopup: (): Promise<void> => ipcRenderer.invoke('app:hidePopup'),
     pathForFile: (f: File): string => webUtils.getPathForFile(f)
   },

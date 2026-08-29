@@ -565,6 +565,74 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- paleta (Ctrl+P) ---------- */
+.palette {
+  width: min(620px, 92vw);
+  align-self: flex-start;
+  margin-top: 12vh;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgb(0 0 0 / 45%);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.palette > input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 12px 14px;
+  font-size: 15px;
+  outline: none;
+}
+
+.pal-list {
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.pal-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.pal-item.sel {
+  background: var(--bg-3);
+}
+
+.pal-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pal-sub {
+  flex-shrink: 0;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+}
+
+.pal-empty,
+.pal-foot {
+  padding: 10px 14px;
+}
+
+.pal-foot {
+  border-top: 1px solid var(--border);
+}
+
 /* ---------- caixa de prompt ---------- */
 .promptbox {
   border-top: 1px solid var(--border);
@@ -595,6 +663,10 @@ button {
 
 .promptbox textarea::placeholder {
   color: var(--muted);
+}
+
+.promptbox .danger-fg {
+  color: var(--danger);
 }
 
 .promptbox-foot {

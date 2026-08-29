@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@/store'
 import { feedTerm, openSearch } from '@/lib/terminals'
+import { requestSuggest } from '@/lib/promptBus'
 import { renderTrayIcon } from '@/lib/trayIcon'
 import { resolveTheme, type Theme } from '@shared/themes'
 import TopBar from './components/TopBar'
@@ -10,6 +11,7 @@ import TerminalView from './components/TerminalView'
 import PromptBox from './components/PromptBox'
 import ProjectPanel from './components/ProjectPanel'
 import SettingsModal from './components/SettingsModal'
+import CommandPalette from './components/CommandPalette'
 import TrayPopup from './components/TrayPopup'
 
 const IS_POPUP = new URLSearchParams(window.location.search).has('popup')
@@ -122,6 +124,29 @@ function Main(): React.JSX.Element {
       } else if (key === 'i') {
         e.preventDefault()
         s.focusPrompt()
+      } else if (key === 'k') {
+        // Ctrl+P não dá: é o histórico de prompts do próprio Claude Code
+        e.preventDefault()
+        s.setPaletteOpen(!s.paletteOpen)
+      } else if (e.key === ' ') {
+        e.preventDefault()
+        requestSuggest(s.activeTabId)
+      } else if (key === '0') {
+        // pula para a próxima sessão que voltou a ficar ociosa (em qualquer projeto)
+        e.preventDefault()
+        const ready = s.tabs.filter((t) => {
+          if (t.suspended || t.exited != null) return false
+          const l = s.live.find((x) => x.tabId === t.id)
+          return l?.status === 'idle' || l?.status === 'waiting'
+        })
+        if (!ready.length) return
+        const i = ready.findIndex((t) => t.id === s.activeTabId)
+        s.setActiveTab(ready[(i + 1) % ready.length].id)
+      } else if (/^[1-9]$/.test(key)) {
+        e.preventDefault()
+        const mine = s.tabs.filter((t) => t.projectPath === s.activeProject)
+        const t = mine[Number(key) - 1]
+        if (t) s.setActiveTab(t.id)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -197,6 +222,7 @@ function Main(): React.JSX.Element {
       </main>
       {panelOpen && <ProjectPanel />}
       <SettingsModal />
+      <CommandPalette />
     </div>
   )
 }

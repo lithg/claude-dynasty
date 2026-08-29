@@ -104,8 +104,26 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
         pasteFromClipboard()
         return false
       }
+      // Shift+Enter / Alt+Enter = quebra de linha sem enviar. O xterm mandaria só CR (= enviar);
+      // o Claude Code entende ESC+CR, que é o que o /terminal-setup configura em iTerm/VS Code.
+      if (ev.key === 'Enter' && (ev.shiftKey || ev.altKey) && !ev.ctrlKey) {
+        window.api.pty.write(tab.id, '\x1b\r')
+        return false
+      }
       // Atalhos globais do app — deixa o React tratar.
-      if (ev.ctrlKey && (key === 't' || key === 'w' || key === 'tab' || key === ',' || key === 'b' || key === 'f' || key === 'i'))
+      if (
+        ev.ctrlKey &&
+        (key === 't' ||
+          key === 'w' ||
+          key === 'tab' ||
+          key === ',' ||
+          key === 'b' ||
+          key === 'f' ||
+          key === 'i' ||
+          key === 'k' ||
+          key === ' ' ||
+          /^[0-9]$/.test(key))
+      )
         return false
       return true
     })

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { TermTab } from '@shared/types'
 import { useStore } from '@/store'
 import { getTerm } from '@/lib/terminals'
+import { registerSuggest, unregisterSuggest } from '@/lib/promptBus'
 
 const HISTORY_KEY = 'wrapper-prompt-history'
 const HISTORY_MAX = 100
@@ -23,9 +24,39 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
   const saveConfig = useStore((s) => s.saveConfig)
   const ref = useRef<HTMLTextAreaElement>(null)
   const [value, setValue] = useState('')
+  const [suggesting, setSuggesting] = useState(false)
+  const [error, setError] = useState('')
   const [history, setHistory] = useState<string[]>(loadHistory)
   // -1 = escrevendo algo novo; 0+ = navegando no histórico (0 é o mais recente)
   const [cursor, setCursor] = useState(-1)
+
+  /**
+   * Pré-preenche a caixa com a resposta provável à última fala do Claude (Ctrl+Espaço).
+   * Sai um `claude -p` com Haiku por trás, então só roda quando você pede.
+   */
+  const suggest = (): void => {
+    if (suggesting || tab.kind !== 'claude' || !tab.sessionId) return
+    setSuggesting(true)
+    setError('')
+    void window.api.app
+      .suggestReply(tab.projectPath, tab.sessionId)
+      .then((r) => {
+        if (r.text) {
+          setValue(r.text)
+          requestAnimationFrame(() => ref.current?.focus())
+        } else {
+          setError(r.error ?? 'não deu para sugerir')
+        }
+      })
+      .finally(() => setSuggesting(false))
+  }
+
+  const suggestRef = useRef(suggest)
+  suggestRef.current = suggest
+  useEffect(() => {
+    registerSuggest(tab.id, () => suggestRef.current())
+    return () => unregisterSuggest(tab.id)
+  }, [tab.id])
 
   // altura acompanha o conteúdo, até 40% da janela
   useEffect(() => {
@@ -92,6 +123,11 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
       getTerm(tab.id)?.focus()
       return
     }
+    if (e.key === ' ' && e.ctrlKey) {
+      e.preventDefault()
+      suggest()
+      return
+    }
     // histórico: só quando o cursor está na ponta do texto (senão é navegação normal)
     if (e.key === 'ArrowUp' && el.selectionStart === 0 && el.selectionEnd === 0) {
       if (navigate(-1)) e.preventDefault()
@@ -141,10 +177,22 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
         onDragOver={(e) => e.preventDefault()}
       />
       <div className="promptbox-foot">
-        <span className="muted small">
-          {lines > 1 ? `${lines} linhas · ` : ''}Ctrl+Enter envia · ↑ histórico · Ctrl+V cola imagem · Ctrl+I foca aqui
+        <span className={error ? 'small danger-fg' : 'muted small'}>
+          {error
+            ? error
+            : `${lines > 1 ? `${lines} linhas · ` : ''}Ctrl+Enter envia · ↑ histórico · Ctrl+V cola imagem · Ctrl+I foca aqui`}
         </span>
         <div className="row gap">
+          {tab.kind === 'claude' && tab.sessionId && (
+            <button
+              className="btn ghost sm"
+              disabled={suggesting}
+              title="Escreve aqui a resposta provável à última mensagem do Claude (Ctrl+Espaço) — roda um claude -p com Haiku, então consome um pouquinho da cota."
+              onClick={suggest}
+            >
+              {suggesting ? 'pensando…' : '✨ sugerir'}
+            </button>
+          )}
           <button
             className="btn ghost sm"
             title="Esconder a caixa de prompt (volta em Configurações, Ctrl+,)"
