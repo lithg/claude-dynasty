@@ -160,9 +160,14 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
       getTerm(tab.id)?.focus()
       return
     }
-    if (e.key === ' ' && e.ctrlKey) {
+    if (e.key === ' ' && e.shiftKey && !e.ctrlKey) {
       e.preventDefault()
       insert('\n')
+      return
+    }
+    if (e.key === ' ' && e.ctrlKey) {
+      e.preventDefault()
+      suggest()
       return
     }
     // histórico: só quando o cursor está na ponta do texto (senão é navegação normal)
@@ -206,7 +211,7 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
           ghost && !value
             ? ghost
             : tab.kind === 'claude'
-              ? 'Prompt para o Claude — Enter/Ctrl+Espaço quebram linha, Ctrl+Enter envia, Esc volta ao terminal'
+              ? 'Prompt para o Claude — Enter/Shift+Espaço quebram linha, Ctrl+Enter envia, Esc volta ao terminal'
               : 'Comando — Ctrl+Enter executa'
         }
         value={value}

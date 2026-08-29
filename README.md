@@ -22,10 +22,10 @@ Desenvolvimento com hot reload: `pnpm dev`.
 - **Ctrl+F**: busca no terminal com contador de ocorrências.
 - **Ctrl+K**: paleta para pular entre sessões abertas e projetos só com o teclado (Ctrl+1..9 vai
   direto para a aba n; Ctrl+0 pula para a próxima sessão que ficou ociosa).
-- **Shift+Enter** e **Ctrl+Espaço** quebram linha em vez de enviar, como no Warp.
+- **Shift+Enter** e **Shift+Espaço** quebram linha em vez de enviar, como no Warp.
 - **Sugestão de resposta**: quando o Claude termina, a resposta provável aparece sozinha na caixa
   como placeholder apagadinho — **Tab** escreve de verdade, Esc descarta e nada é enviado sem
-  Ctrl+Enter. Roda um `claude -p` com Haiku por resposta; desligável nas configurações.
+  Ctrl+Enter (**Ctrl+Espaço** pede uma sugestão na hora). Roda um `claude -p` com Haiku por resposta; desligável nas configurações.
 - **Painel direito**: git (branch, sujo, último commit), sessões vivas, infos do `CLAUDE.md`
   (resumo, URLs, comandos SSH para copiar), scripts do `package.json` (rodam num shell),
   opções por projeto e histórico de sessões com **retomar** (`claude --resume`).

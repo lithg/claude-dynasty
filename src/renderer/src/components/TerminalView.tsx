@@ -104,9 +104,12 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
         pasteFromClipboard()
         return false
       }
-      // Shift+Enter / Alt+Enter / Ctrl+Espaço = quebra de linha sem enviar. O xterm mandaria só CR
+      // Shift+Enter / Alt+Enter / Shift+Espaço = quebra de linha sem enviar. O xterm mandaria só CR
       // (= enviar); o Claude Code entende ESC+CR, que é o que o /terminal-setup configura no VS Code.
-      if ((ev.key === 'Enter' && (ev.shiftKey || ev.altKey) && !ev.ctrlKey) || (ev.ctrlKey && ev.key === ' ')) {
+      if (
+        (ev.key === 'Enter' && (ev.shiftKey || ev.altKey) && !ev.ctrlKey) ||
+        (ev.key === ' ' && ev.shiftKey && !ev.ctrlKey && !ev.altKey)
+      ) {
         window.api.pty.write(tab.id, '\x1b\r')
         return false
       }
@@ -121,6 +124,7 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
           key === 'f' ||
           key === 'i' ||
           key === 'k' ||
+          key === ' ' ||
           /^[0-9]$/.test(key))
       )
         return false

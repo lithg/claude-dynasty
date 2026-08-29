@@ -108,10 +108,12 @@ o foco ao xterm; **Ctrl+I** traz o foco de volta para a caixa.
 O xterm mandaria só `CR` no Shift+Enter — o Claude Code lê isso como "enviar". `TerminalView`
 intercepta Shift+Enter/Alt+Enter e escreve **ESC+CR** (`\x1b\r`), que é o que o `/terminal-setup`
 configura em iTerm/VS Code. Verificado num PTY: o prompt passa a mostrar duas linhas sem enviar.
+Atenção: com Shift+Espaço mapeado, segurar Shift e bater espaço no meio de uma frase quebra linha
+em vez de dar espaço — se incomodar, é só tirar a condição em `TerminalView`.
 
 ## Sugestão de resposta (o "prompt pré-preenchido" do Warp)
 Vem **sozinha** quando a sessão da aba ativa passa de `busy` para `idle` (config `autoSuggest`;
-o botão ✨ pede de novo): `lastAssistantText()` lê a última fala do Claude no
+**Ctrl+Espaço** ou o botão ✨ pedem na hora): `lastAssistantText()` lê a última fala do Claude no
 transcript e o main roda `claude -p "<instruções + mensagem>" --model haiku` com `cwd` numa pasta
 temporária (para não sujar o histórico do projeto). A sugestão chega como **placeholder apagado**
 (itálico, borda tracejada) — o `value` continua vazio; **Tab** transforma em texto editável,
@@ -141,7 +143,7 @@ br.com.guilherme.wrapperclaude` (gravado via IPropertyStore no .lnk; sem isso o 
 Ctrl+T (ou o "+" ao lado das abas) nova sessão Claude · Ctrl+W fecha aba · Ctrl+Tab alterna · Ctrl+B painel · Ctrl+, config ·
 Ctrl+F busca no terminal · Ctrl+I foca a caixa de prompt · Ctrl+Enter envia o prompt ·
 Ctrl+K paleta (sessões e projetos) · Ctrl+1..9 vai para a aba n · Ctrl+0 pula para a próxima sessão ociosa ·
-Shift+Enter e Ctrl+Espaço quebram linha (terminal e caixa) · Tab aceita a sugestão ·
+Shift+Enter e Shift+Espaço quebram linha (terminal e caixa) · Tab aceita a sugestão · Ctrl+Espaço pede sugestão ·
 Ctrl+Shift+C/V copia/cola no terminal · botão do meio fecha aba.
 
 ## Regras

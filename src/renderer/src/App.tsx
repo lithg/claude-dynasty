@@ -136,6 +136,10 @@ function Main(): React.JSX.Element {
       } else if (key === 'i') {
         e.preventDefault()
         s.focusPrompt()
+      } else if (e.key === ' ') {
+        // pede a sugestão na hora (ela também vem sozinha quando o Claude termina)
+        e.preventDefault()
+        requestSuggest(s.activeTabId)
       } else if (key === 'k') {
         // Ctrl+P não dá: é o histórico de prompts do próprio Claude Code
         e.preventDefault()
