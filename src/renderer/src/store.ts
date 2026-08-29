@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type {
   AppConfig,
+  DocInfo,
   HistorySession,
   LiveSession,
   ProjectDetails,
@@ -19,6 +20,12 @@ interface State {
   activeTabId: string | null
   activeProject: string | null
   usage: UsageInfo | null
+  docs: DocInfo[]
+  docsDir: string
+  /** documento aberto na área central (quando tem um, o terminal fica de lado) */
+  activeDoc: string | null
+  docText: string
+  docSaving: boolean
   settingsOpen: boolean
   paletteOpen: boolean
   /** primeira vez que o app abre nesta máquina (sem config.json) */
@@ -48,6 +55,17 @@ interface State {
   /** envia /rc para a aba (liga/desliga Remote Control na sessão em andamento) */
   toggleRc: (id: string) => void
 
+  loadDocs: () => Promise<void>
+  openDoc: (path: string | null) => Promise<void>
+  setDocText: (text: string, salvarJa?: boolean) => void
+  createDoc: (nome: string) => Promise<void>
+  renameDoc: (path: string, nome: string) => Promise<void>
+  removeDoc: (path: string) => Promise<void>
+  reorderDocs: (de: string, para: string) => Promise<void>
+  reorderProjects: (de: string, para: string) => Promise<void>
+  setProjectLabel: (name: string, label: string) => Promise<void>
+  createProject: (nome: string) => Promise<void>
+
   setSettingsOpen: (v: boolean) => void
   setFirstRun: (v: boolean) => void
   setPaletteOpen: (v: boolean) => void
@@ -66,6 +84,28 @@ export function projectName(path: string): string {
 }
 
 let zoomTimer: ReturnType<typeof setTimeout> | null = null
+/** gravação adiada do documento aberto (auto save) */
+let pendente: { path: string; text: string; timer: ReturnType<typeof setTimeout> } | null = null
+
+function porOrdem<T>(itens: T[], ordem: string[], chave: (x: T) => string): T[] {
+  const peso = new Map(ordem.map((n, i) => [n, i]))
+  return [...itens].sort((a, b) => {
+    const ia = peso.get(chave(a))
+    const ib = peso.get(chave(b))
+    if (ia != null && ib != null) return ia - ib
+    if (ia != null) return -1
+    if (ib != null) return 1
+    return 0
+  })
+}
+
+function ordenarDocs(docs: DocInfo[], ordem: string[]): DocInfo[] {
+  return porOrdem(docs, ordem, (d) => d.name)
+}
+
+function ordenarProjetos(projects: ProjectInfo[], ordem: string[]): ProjectInfo[] {
+  return porOrdem(projects, ordem, (p) => p.name)
+}
 
 export const useStore = create<State>((set, get) => ({
   config: null,
@@ -77,6 +117,11 @@ export const useStore = create<State>((set, get) => ({
   activeTabId: null,
   activeProject: null,
   usage: null,
+  docs: [],
+  docsDir: '',
+  activeDoc: null,
+  docText: '',
+  docSaving: false,
   settingsOpen: false,
   paletteOpen: false,
   firstRun: false,
@@ -93,6 +138,7 @@ export const useStore = create<State>((set, get) => ({
     ])
     set({ config, live, tabs: tabs.filter((t) => t.exited == null), firstRun })
     await get().loadProjects()
+    void get().loadDocs()
     void get().refreshUsage()
     const first = get().projects[0]
     if (tabs.length) {
@@ -109,7 +155,7 @@ export const useStore = create<State>((set, get) => ({
 
   loadProjects: async () => {
     const projects = await window.api.projects.list()
-    set({ projects })
+    set({ projects: ordenarProjetos(projects, get().config?.projectOrder ?? []) })
   },
 
   loadDetails: async (path, force) => {
@@ -142,7 +188,7 @@ export const useStore = create<State>((set, get) => ({
 
   selectProject: async (path) => {
     const { tabs, config } = get()
-    set({ activeProject: path })
+    set({ activeProject: path, activeDoc: null })
     void get().loadDetails(path, true)
     void get().loadHistory(path)
     const mine = tabs.filter((t) => t.projectPath === path)
@@ -186,7 +232,7 @@ export const useStore = create<State>((set, get) => ({
 
   setActiveTab: (id) => {
     const t = get().tabs.find((x) => x.id === id)
-    set({ activeTabId: id, activeProject: t?.projectPath ?? get().activeProject })
+    set({ activeTabId: id, activeProject: t?.projectPath ?? get().activeProject, activeDoc: null })
     if (t) {
       void get().loadDetails(t.projectPath)
       void get().loadHistory(t.projectPath)
@@ -209,6 +255,103 @@ export const useStore = create<State>((set, get) => ({
   focusPrompt: () => {
     const el = document.querySelector<HTMLTextAreaElement>('.promptbox textarea')
     el?.focus()
+  },
+
+  loadDocs: async () => {
+    const [docs, docsDir] = await Promise.all([window.api.docs.list(), window.api.docs.dir()])
+    set({ docs: ordenarDocs(docs, get().config?.docsOrder ?? []), docsDir })
+    // documento aberto sumiu (renomeado/apagado por fora)
+    const aberto = get().activeDoc
+    if (aberto && !docs.some((d) => d.path === aberto)) set({ activeDoc: null, docText: '' })
+  },
+
+  openDoc: async (path) => {
+    if (pendente) {
+      clearTimeout(pendente.timer)
+      await window.api.docs.write(pendente.path, pendente.text)
+      pendente = null
+    }
+    if (!path) {
+      set({ activeDoc: null, docText: '' })
+      return
+    }
+    const texto = await window.api.docs.read(path).catch(() => '')
+    set({ activeDoc: path, docText: texto, docSaving: false })
+  },
+
+  setDocText: (text, salvarJa) => {
+    const path = get().activeDoc
+    if (!path) return
+    set({ docText: text, docSaving: true })
+    if (pendente) clearTimeout(pendente.timer)
+    const gravar = async (): Promise<void> => {
+      pendente = null
+      await window.api.docs.write(path, text).catch(() => undefined)
+      if (get().activeDoc === path) set({ docSaving: false })
+      void get().loadDocs()
+    }
+    pendente = { path, text, timer: setTimeout(() => void gravar(), salvarJa ? 0 : 700) }
+  },
+
+  createDoc: async (nome) => {
+    const doc = await window.api.docs.create(nome)
+    // entra no fim da lista: a ordem manual precisa conter todos, senão o novo pularia para o topo
+    const ordem = [...get().docs.map((d) => d.name).filter((n) => n !== doc.name), doc.name]
+    await get().saveConfig({ docsOrder: ordem })
+    await get().loadDocs()
+    await get().openDoc(doc.path)
+  },
+
+  renameDoc: async (path, nome) => {
+    const antigo = get().docs.find((d) => d.path === path)
+    const doc = await window.api.docs.rename(path, nome)
+    const cfg = get().config
+    if (cfg && antigo) {
+      const docsOrder = cfg.docsOrder.map((n) => (n === antigo.name ? doc.name : n))
+      await get().saveConfig({ docsOrder: docsOrder.includes(doc.name) ? docsOrder : [...docsOrder, doc.name] })
+    }
+    await get().loadDocs()
+    if (get().activeDoc === path) set({ activeDoc: doc.path })
+  },
+
+  removeDoc: async (path) => {
+    await window.api.docs.remove(path)
+    if (get().activeDoc === path) set({ activeDoc: null, docText: '' })
+    await get().loadDocs()
+  },
+
+  reorderDocs: async (de, para) => {
+    const nomes = get().docs.map((d) => d.name)
+    const i = nomes.indexOf(de)
+    const j = nomes.indexOf(para)
+    if (i < 0 || j < 0 || i === j) return
+    nomes.splice(j, 0, ...nomes.splice(i, 1))
+    await get().saveConfig({ docsOrder: nomes })
+    set({ docs: ordenarDocs(get().docs, nomes) })
+  },
+
+  reorderProjects: async (de, para) => {
+    const nomes = get().projects.map((p) => p.name)
+    const i = nomes.indexOf(de)
+    const j = nomes.indexOf(para)
+    if (i < 0 || j < 0 || i === j) return
+    nomes.splice(j, 0, ...nomes.splice(i, 1))
+    await get().saveConfig({ projectOrder: nomes })
+    await get().loadProjects()
+  },
+
+  setProjectLabel: async (name, label) => {
+    const cfg = get().config
+    if (!cfg) return
+    const atual = cfg.perProject[name] ?? {}
+    const proximo = { ...atual, label: label.trim() || undefined }
+    await get().saveConfig({ perProject: { ...cfg.perProject, [name]: proximo } })
+  },
+
+  createProject: async (nome) => {
+    const dir = await window.api.projects.create(nome)
+    await get().loadProjects()
+    await get().selectProject(dir)
   },
 
   setSettingsOpen: (v) => set({ settingsOpen: v }),

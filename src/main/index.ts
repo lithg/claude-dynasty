@@ -20,6 +20,7 @@ import type { AppConfig, LiveSession, SpawnClaudeOpts, SpawnShellOpts, TermTab, 
 import { resolveTheme } from '@shared/themes'
 import { getConfig, setConfig, configPath, isFirstRun } from './config'
 import { listProjects, projectDetails } from './projects'
+import { createDoc, deleteDoc, docsDir, ensureDocsDir, listDocs, readDoc, renameDoc, stopWatchDocs, watchDocs, writeDoc } from './docs'
 import { LiveSessionWatcher, lastAssistantText, readHistory, readLiveSessions, transcriptExists } from './claudeSessions'
 import { PtyManager } from './pty'
 import { resolveClaudeBin } from './claudeBin'
@@ -424,6 +425,25 @@ function registerIpc(): void {
     execFile('cmd.exe', ['/c', 'code', path], { windowsHide: true }, () => undefined)
   })
 
+  /* documentação: arquivos .md numa pasta ao lado dos projetos */
+  ipcMain.handle('docs:dir', () => docsDir())
+  ipcMain.handle('docs:list', () => listDocs())
+  ipcMain.handle('docs:read', (_e, path: string) => readDoc(path))
+  ipcMain.handle('docs:write', (_e, path: string, content: string) => writeDoc(path, content))
+  ipcMain.handle('docs:create', (_e, nome: string) => createDoc(nome))
+  ipcMain.handle('docs:rename', (_e, path: string, nome: string) => renameDoc(path, nome))
+  ipcMain.handle('docs:delete', (_e, path: string) => deleteDoc(path))
+  ipcMain.handle('docs:reveal', () => shell.openPath(ensureDocsDir()))
+
+  ipcMain.handle('projects:create', (_e, nome: string): string => {
+    const limpo = nome.replace(/[\/:*?"<>|]/g, '-').trim()
+    if (!limpo) throw new Error('nome vazio')
+    const dir = join(getConfig().rootDir, limpo)
+    if (existsSync(dir)) throw new Error('já existe uma pasta com esse nome')
+    mkdirSync(dir, { recursive: true })
+    return dir
+  })
+
   ipcMain.handle('sessions:live', () => readLiveSessions())
   ipcMain.handle('sessions:history', (_e, path: string) => readHistory(path))
 
@@ -691,6 +711,8 @@ app.whenReady().then(() => {
   // Não precisa ser tempo real: a API de consumo devolve 429 se consultada com frequência.
   setInterval(() => void refreshUsage(), 3 * 60_000)
 
+  watchDocs(() => send('docs:changed'))
+
   watcher = new LiveSessionWatcher(
     (sessions) => {
       send('sessions:live', attachTabIds(sessions))
@@ -722,6 +744,7 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   quitting = true
   persistTabs(true)
+  stopWatchDocs()
   watcher?.stop()
   ptys?.killAll()
 })

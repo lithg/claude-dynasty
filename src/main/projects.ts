@@ -61,6 +61,8 @@ export function listProjects(): ProjectInfo[] {
     if (!entry.isDirectory()) continue
     const name = entry.name
     if (name.startsWith('.') || name.startsWith('_')) continue
+    // a pasta de documentação mora na raiz dos projetos, mas não é um projeto
+    if (join(root, name) === (cfg.docsDir || join(root, 'Documentacao'))) continue
     const dir = join(root, name)
     if (!MARKERS.some((m) => existsSync(join(dir, m)))) continue
     let mtime = 0

@@ -93,6 +93,16 @@ export interface TermTab {
   suspended?: boolean
 }
 
+export interface DocInfo {
+  /** nome do arquivo, com .md */
+  name: string
+  path: string
+  /** primeiro `# titulo` do arquivo, ou o nome do arquivo */
+  title: string
+  mtime: number
+  size: number
+}
+
 export interface ProjectOverride {
   skipPermissions?: boolean
   /** tamanho da fonte do terminal deste projeto (Ctrl+roda do mouse) */
@@ -136,6 +146,12 @@ export interface AppConfig {
   autoSuggest: boolean
   /** iniciar com o Windows, escondido na bandeja */
   startWithWindows: boolean
+  /** pasta dos documentos ('' = <rootDir>/Documentacao) */
+  docsDir: string
+  /** ordem manual dos documentos (nomes de arquivo); o resto vai em ordem alfabética */
+  docsOrder: string[]
+  /** ordem manual dos projetos (nomes de pasta); o resto vai depois, por mtime */
+  projectOrder: string[]
   windowBounds?: { x?: number; y?: number; width: number; height: number; maximized?: boolean }
 }
 

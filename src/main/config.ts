@@ -26,7 +26,10 @@ const DEFAULTS: AppConfig = {
   restoreTabs: true,
   promptBox: true,
   autoSuggest: true,
-  startWithWindows: true
+  startWithWindows: true,
+  docsDir: '',
+  docsOrder: [],
+  projectOrder: []
 }
 
 let cache: AppConfig | null = null

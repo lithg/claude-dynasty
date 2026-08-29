@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type {
   AppConfig,
+  DocInfo,
   HistorySession,
   LiveSession,
   ProjectDetails,
@@ -30,7 +31,19 @@ const api = {
     list: (): Promise<ProjectInfo[]> => ipcRenderer.invoke('projects:list'),
     details: (path: string): Promise<ProjectDetails> => ipcRenderer.invoke('projects:details', path),
     openExplorer: (path: string): Promise<string> => ipcRenderer.invoke('projects:openExplorer', path),
-    openVsCode: (path: string): Promise<void> => ipcRenderer.invoke('projects:openVsCode', path)
+    openVsCode: (path: string): Promise<void> => ipcRenderer.invoke('projects:openVsCode', path),
+    create: (nome: string): Promise<string> => ipcRenderer.invoke('projects:create', nome)
+  },
+  docs: {
+    dir: (): Promise<string> => ipcRenderer.invoke('docs:dir'),
+    list: (): Promise<DocInfo[]> => ipcRenderer.invoke('docs:list'),
+    read: (path: string): Promise<string> => ipcRenderer.invoke('docs:read', path),
+    write: (path: string, content: string): Promise<number> => ipcRenderer.invoke('docs:write', path, content),
+    create: (nome: string): Promise<DocInfo> => ipcRenderer.invoke('docs:create', nome),
+    rename: (path: string, nome: string): Promise<DocInfo> => ipcRenderer.invoke('docs:rename', path, nome),
+    remove: (path: string): Promise<void> => ipcRenderer.invoke('docs:delete', path),
+    reveal: (): Promise<string> => ipcRenderer.invoke('docs:reveal'),
+    onChanged: (cb: () => void): Unsub => on<[]>('docs:changed', cb)
   },
   sessions: {
     live: (): Promise<LiveSession[]> => ipcRenderer.invoke('sessions:live'),

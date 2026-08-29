@@ -41,6 +41,12 @@ Desenvolvimento com hot reload: `pnpm dev`.
   consumo, botão direito = abrir o wrapper / sair; inicia com o Windows escondido na bandeja.
 - **Abas**: "+" abre outra sessão no mesmo projeto; dropdowns de modelo/effort lembrados por projeto;
   badge/botão **RC** mostra o Remote Control (clique = QR/desconectar, botão direito = abrir no claude.ai).
+- **Documentação**: seção própria na sidebar com documentos em markdown — cria pelo "+", edita com
+  salvamento automático, marca as caixinhas com um clique, renomeia e reordena arrastando. São
+  arquivos `.md` numa pasta ao lado dos projetos, então dá para pedir ao Claude *"edita o TODO da
+  Loja do Managol e adiciona um checklist"* e a tela atualiza sozinha.
+- **Projetos**: "+" cria uma pasta nova na raiz, botão direito renomeia (só o rótulo) e dá para
+  reordenar arrastando.
 - **Temas**: escuro, claro, sistema, Claude (laranja), Matrix, Dracula, Synthwave, Nord, Gruvbox,
   Solarized, Monokai, âmbar retrô — mudam a UI e o terminal do Claude.
 - **Ctrl+V** cola imagem direto no Claude; arrastar arquivo cola o caminho.

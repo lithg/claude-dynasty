@@ -101,6 +101,28 @@ Os defaults do `config.ts` são neutros (`pinned: []`, raiz em `~/Documents/GitH
 projeto pessoal embutido. O passo a passo para montar em outra máquina está em `INSTALAR.md`,
 escrito para o Claude Code do dono da máquina executar.
 
+## Documentação
+Seção da sidebar com arquivos `.md` de verdade em `<rootDir>/Documentacao` (config `docsDir`) —
+são arquivos comuns justamente para o Claude poder editá-los numa sessão. `src/main/docs.ts` faz
+listar/ler/gravar/criar/renomear/excluir (excluir vai para a lixeira via `shell.trashItem`) e
+valida que o caminho está dentro da pasta e termina em `.md`. Um `fs.watch` na pasta manda
+`docs:changed`, e o renderer recarrega a lista e o documento aberto — é assim que a edição feita
+pelo Claude aparece na hora. A pasta é pulada no scan de projetos.
+
+`src/renderer/src/lib/markdown.ts` é um renderizador próprio (títulos, listas, checkbox, tabela,
+citação, código, links). Escrito à mão de propósito: o HTML sai de uma lista branca, então um
+documento com `<script>` não vira código rodando no renderer. `toggleTask(md, n)` alterna a
+n-ésima caixinha — o clique na visualização edita o arquivo.
+
+`DocView` salva sozinho (a store adia a gravação em 700 ms; marcar caixinha grava na hora) e
+alterna entre editar (texto puro) e ver (formatado). Abrir um documento **esconde** o terminal em
+vez de desmontar — desmontar mataria o xterm e o histórico da aba.
+
+Ordem manual de documentos e projetos: `docsOrder` / `projectOrder` no config, arrastando na
+sidebar. O item arrastado fica num `useRef`, não em estado do React: o estado não chega a tempo do
+`drop`. Renomear projeto mexe só no rótulo (`perProject[nome].label`) — a pasta não é renomeada,
+senão quebraria git, sessões abertas e o histórico em `~/.claude/projects/<slug>`.
+
 ## Temas
 `src/shared/themes.ts` — cada tema define as variáveis da UI **e** as cores do xterm (janela do
 Claude); alguns trocam a fonte (Matrix, âmbar). Aplicados como CSS vars inline em `App.tsx`.

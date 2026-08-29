@@ -13,6 +13,7 @@ import ProjectPanel from './components/ProjectPanel'
 import SettingsModal from './components/SettingsModal'
 import CommandPalette from './components/CommandPalette'
 import WelcomeModal from './components/WelcomeModal'
+import DocView from './components/DocView'
 import TrayPopup from './components/TrayPopup'
 
 const IS_POPUP = new URLSearchParams(window.location.search).has('popup')
@@ -60,6 +61,7 @@ function Main(): React.JSX.Element {
   const config = useStore((s) => s.config)
   const tabs = useStore((s) => s.tabs)
   const activeTabId = useStore((s) => s.activeTabId)
+  const activeDoc = useStore((s) => s.activeDoc)
   const activeProject = useStore((s) => s.activeProject)
   const panelOpen = useStore((s) => s.panelOpen)
   const projects = useStore((s) => s.projects)
@@ -89,6 +91,12 @@ function Main(): React.JSX.Element {
     const offCfg = window.api.config.onUpdate((config) => useStore.setState({ config }))
     const offTabs = window.api.tabs.onUpdate((tab) => useStore.getState().updateTab(tab))
     const offTray = window.api.tray.onRender((percent) => window.api.tray.rendered(renderTrayIcon(percent)))
+    // o Claude (ou o Explorer) mexeu num documento: recarrega a lista e o que está aberto
+    const offDocs = window.api.docs.onChanged(() => {
+      const s = useStore.getState()
+      void s.loadDocs()
+      if (s.activeDoc && !s.docSaving) void s.openDoc(s.activeDoc)
+    })
     // Escondido na bandeja/minimizado: para de animar (CSS) e de rodar git a cada 30s.
     const onVis = (): void => {
       document.documentElement.classList.toggle('oculto', document.hidden)
@@ -108,6 +116,7 @@ function Main(): React.JSX.Element {
       offCfg()
       offTabs()
       offTray()
+      offDocs()
       document.removeEventListener('visibilitychange', onVis)
       clearInterval(detailsTimer)
     }
@@ -184,8 +193,9 @@ function Main(): React.JSX.Element {
       <TopBar />
       <Sidebar />
       <main className="main">
-        <TabBar />
-        <div className="term-area">
+        {/* o documento só esconde o terminal: desmontar mataria o xterm e o histórico da aba */}
+        {!activeDoc && <TabBar />}
+        <div className="term-area" style={activeDoc ? { display: 'none' } : undefined}>
           {tabs
             .filter((t) => !t.suspended)
             .map((t) => (
@@ -239,7 +249,8 @@ function Main(): React.JSX.Element {
             </div>
           )}
         </div>
-        {config?.promptBox && activeTab && !activeTab.suspended && activeTab.exited == null && (
+        {activeDoc && <DocView />}
+        {!activeDoc && config?.promptBox && activeTab && !activeTab.suspended && activeTab.exited == null && (
           <PromptBox key={activeTab.id} tab={activeTab} />
         )}
       </main>
