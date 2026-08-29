@@ -110,6 +110,16 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
         pasteFromClipboard()
         return false
       }
+      // Ctrl+Shift+L: limpa e manda o TUI se redesenhar. Serve quando algo de fora escreve
+      // por cima da tela (outro processo herdando o console, saída perdida de um comando…).
+      if (ev.ctrlKey && ev.shiftKey && key === 'l') {
+        term.clear()
+        term.reset()
+        const { cols, rows } = term
+        window.api.pty.resize(tab.id, Math.max(2, cols - 1), rows)
+        setTimeout(() => window.api.pty.resize(tab.id, cols, rows), 80)
+        return false
+      }
       // Shift+Enter / Alt+Enter / Shift+Espaço = quebra de linha sem enviar. O xterm mandaria só CR
       // (= enviar); o Claude Code entende ESC+CR, que é o que o /terminal-setup configura no VS Code.
       if (

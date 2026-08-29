@@ -41,8 +41,21 @@ const START_HIDDEN = process.argv.includes('--hidden')
 const FIRST_RUN = isFirstRun()
 const POPUP_W = 360
 
+/**
+ * `isDestroyed()` na janela não basta: se o processo do renderer morrer (crash, ou alguém
+ * matando o processo), a janela continua "viva" e o send estoura com "Render frame was disposed".
+ */
+function sendTo(w: BrowserWindow | null, channel: string, ...args: unknown[]): void {
+  if (!w || w.isDestroyed() || w.webContents.isDestroyed()) return
+  try {
+    w.webContents.send(channel, ...args)
+  } catch {
+    /* renderer indo embora */
+  }
+}
+
 function send(channel: string, ...args: unknown[]): void {
-  for (const w of [win, popup]) if (w && !w.isDestroyed()) w.webContents.send(channel, ...args)
+  for (const w of [win, popup]) sendTo(w, channel, ...args)
 }
 
 function splitArgs(s: string): string[] {
@@ -246,8 +259,7 @@ function createTray(): void {
 
 /** Pede ao renderer para desenhar o ícone (anel + número) e aplica na bandeja. */
 function requestTrayIcon(): void {
-  if (!win || win.isDestroyed()) return
-  win.webContents.send('tray:render', peakPercent(lastUsage))
+  sendTo(win, 'tray:render', peakPercent(lastUsage))
 }
 
 async function refreshUsage(force = false): Promise<UsageInfo> {

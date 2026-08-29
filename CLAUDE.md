@@ -157,6 +157,13 @@ cicla os modos: não usar.
 Ctrl+F abre a barra (`@xterm/addon-search`): Enter próximo, Shift+Enter anterior, Esc fecha,
 contador `n/total`. `matchBackground`/`activeMatchBackground` só aceitam `#RRGGBB` (nada de rgba).
 
+## Terminal sujo
+Se algo de fora escrever por cima da tela (um processo que herdou o console, saída perdida de um
+comando), **Ctrl+Shift+L** limpa o xterm e força o TUI a se redesenhar mexendo no tamanho do PTY e
+voltando. Para mandar IPC ao renderer use `sendTo()`: `win.isDestroyed()` não basta, porque com o
+processo do renderer morto a janela continua "viva" e o `send` estoura com "Render frame was
+disposed".
+
 ## Notificações
 Só para sessões abertas pelo wrapper (config `notifyExternal` inclui as externas). Os toasts
 mostram "Claude Wrapper" porque os atalhos têm `System.AppUserModel.ID =
@@ -168,7 +175,7 @@ Ctrl+T (ou o "+" ao lado das abas) nova sessão Claude · Ctrl+W fecha aba · Ct
 Ctrl+F busca no terminal · Ctrl+I foca a caixa de prompt · Ctrl+Enter envia o prompt ·
 Ctrl+K paleta (sessões e projetos) · Ctrl+1..9 vai para a aba n · Ctrl+0 pula para a próxima sessão ociosa ·
 Shift+Enter e Shift+Espaço quebram linha (terminal e caixa) · Tab aceita a sugestão · Ctrl+Espaço pede sugestão ·
-Ctrl+Shift+C/V copia/cola no terminal · botão do meio fecha aba.
+Ctrl+Shift+C/V copia/cola no terminal · Ctrl+Shift+L limpa e redesenha o terminal · botão do meio fecha aba.
 
 ## Regras
 - Mensagens e UI em PT-BR.
