@@ -665,6 +665,17 @@ button {
   color: var(--muted);
 }
 
+/* sugestão pendente: mais apagada e em itálico, para não parecer texto digitado */
+.promptbox textarea.ghost::placeholder {
+  color: var(--muted);
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.promptbox textarea.ghost {
+  border-style: dashed;
+}
+
 .promptbox .danger-fg {
   color: var(--danger);
 }

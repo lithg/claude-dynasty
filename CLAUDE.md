@@ -112,8 +112,10 @@ configura em iTerm/VS Code. Verificado num PTY: o prompt passa a mostrar duas li
 ## Sugestão de resposta (o "prompt pré-preenchido" do Warp)
 Botão ✨ na caixa de prompt / **Ctrl+Espaço**: `lastAssistantText()` lê a última fala do Claude no
 transcript e o main roda `claude -p "<instruções + mensagem>" --model haiku` com `cwd` numa pasta
-temporária (para não sujar o histórico do projeto). O texto volta **na caixa, sem enviar**. Só roda
-quando você pede — gasta cota. A busca no transcript tenta 512 KB de cauda e depois 4 MB: trechos
+temporária (para não sujar o histórico do projeto). A sugestão chega como **placeholder apagado**
+(itálico, borda tracejada) — o `value` continua vazio; **Enter** ou **Tab** transformam em texto
+editável, **Esc** descarta e nada é enviado até você dar Ctrl+Enter. Só roda quando você pede —
+gasta cota. A busca no transcript tenta 512 KB de cauda e depois 4 MB: trechos
 com muita chamada de ferramenta empurram o último texto para longe do fim.
 
 ## Teclas que o Claude Code já usa

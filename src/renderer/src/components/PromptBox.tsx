@@ -26,12 +26,15 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
   const [value, setValue] = useState('')
   const [suggesting, setSuggesting] = useState(false)
   const [error, setError] = useState('')
+  // sugestão ainda não aceita: aparece só como placeholder apagado, Enter transforma em texto
+  const [ghost, setGhost] = useState('')
   const [history, setHistory] = useState<string[]>(loadHistory)
   // -1 = escrevendo algo novo; 0+ = navegando no histórico (0 é o mais recente)
   const [cursor, setCursor] = useState(-1)
 
   /**
-   * Pré-preenche a caixa com a resposta provável à última fala do Claude (Ctrl+Espaço).
+   * Sugere a resposta provável à última fala do Claude (Ctrl+Espaço). Ela entra só como
+   * placeholder apagado — vira texto de verdade no Enter, some no Esc; nada é enviado.
    * Sai um `claude -p` com Haiku por trás, então só roda quando você pede.
    */
   const suggest = (): void => {
@@ -42,13 +45,24 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
       .suggestReply(tab.projectPath, tab.sessionId)
       .then((r) => {
         if (r.text) {
-          setValue(r.text)
+          setGhost(r.text)
           requestAnimationFrame(() => ref.current?.focus())
         } else {
           setError(r.error ?? 'não deu para sugerir')
         }
       })
       .finally(() => setSuggesting(false))
+  }
+
+  const acceptGhost = (): void => {
+    setValue(ghost)
+    setGhost('')
+    requestAnimationFrame(() => {
+      const el = ref.current
+      if (!el) return
+      el.focus()
+      el.selectionStart = el.selectionEnd = el.value.length
+    })
   }
 
   const suggestRef = useRef(suggest)
@@ -58,13 +72,21 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
     return () => unregisterSuggest(tab.id)
   }, [tab.id])
 
-  // altura acompanha o conteúdo, até 40% da janela
+  // altura acompanha o conteúdo (ou a sugestão em placeholder), até 40% da janela
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    const max = Math.round(window.innerHeight * 0.4)
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, Math.round(window.innerHeight * 0.4))}px`
-  }, [value])
+    let h = el.scrollHeight
+    if (!value && ghost) {
+      // scrollHeight ignora o placeholder: mede com o texto da sugestão dentro
+      el.value = ghost
+      h = el.scrollHeight
+      el.value = ''
+    }
+    el.style.height = `${Math.min(h, max)}px`
+  }, [value, ghost])
 
   const pushHistory = (text: string): void => {
     const next = [text, ...history.filter((h) => h !== text)].slice(0, HISTORY_MAX)
@@ -118,6 +140,19 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
       send()
       return
     }
+    // sugestão pendente: Enter (ou Tab) transforma o placeholder em texto editável
+    if (ghost && !value) {
+      if ((e.key === 'Enter' && !e.shiftKey && !e.altKey) || e.key === 'Tab') {
+        e.preventDefault()
+        acceptGhost()
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setGhost('')
+        return
+      }
+    }
     if (e.key === 'Escape') {
       e.preventDefault()
       getTerm(tab.id)?.focus()
@@ -164,10 +199,13 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
         ref={ref}
         rows={2}
         spellCheck={false}
+        className={ghost && !value ? 'ghost' : undefined}
         placeholder={
-          tab.kind === 'claude'
-            ? 'Prompt para o Claude — Enter quebra linha, Ctrl+Enter envia, Esc volta ao terminal'
-            : 'Comando — Ctrl+Enter executa'
+          ghost && !value
+            ? ghost
+            : tab.kind === 'claude'
+              ? 'Prompt para o Claude — Enter quebra linha, Ctrl+Enter envia, Esc volta ao terminal'
+              : 'Comando — Ctrl+Enter executa'
         }
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -180,7 +218,9 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
         <span className={error ? 'small danger-fg' : 'muted small'}>
           {error
             ? error
-            : `${lines > 1 ? `${lines} linhas · ` : ''}Ctrl+Enter envia · ↑ histórico · Ctrl+V cola imagem · Ctrl+I foca aqui`}
+            : ghost && !value
+              ? 'sugestão: Enter (ou Tab) escreve na caixa · Esc descarta · nada é enviado'
+              : `${lines > 1 ? `${lines} linhas · ` : ''}Ctrl+Enter envia · ↑ histórico · Ctrl+V cola imagem · Ctrl+I foca aqui`}
         </span>
         <div className="row gap">
           {tab.kind === 'claude' && tab.sessionId && (
