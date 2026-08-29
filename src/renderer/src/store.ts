@@ -48,8 +48,6 @@ interface State {
   /** dá processo a uma aba suspensa/encerrada (claude --resume) */
   resumeTab: (id: string) => Promise<void>
   setActiveTab: (id: string) => void
-  /** foca a caixa de prompt da aba ativa */
-  focusPrompt: () => void
   markExited: (id: string, code: number) => void
   updateTab: (tab: TermTab) => void
   /** envia /rc para a aba (liga/desliga Remote Control na sessão em andamento) */
@@ -250,11 +248,6 @@ export const useStore = create<State>((set, get) => ({
   toggleRc: (id) => {
     window.api.pty.write(id, '/rc')
     setTimeout(() => window.api.pty.write(id, '\r'), 150)
-  },
-
-  focusPrompt: () => {
-    const el = document.querySelector<HTMLTextAreaElement>('.promptbox textarea')
-    el?.focus()
   },
 
   loadDocs: async () => {

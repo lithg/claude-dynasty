@@ -93,22 +93,36 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
       })()
     }
 
+    /** Shift+Enter (e Alt+Enter): quebra de linha, não "enviar". */
+    const quebraLinha = (ev: KeyboardEvent): boolean => ev.key === 'Enter' && (ev.shiftKey || ev.altKey) && !ev.ctrlKey
+
     term.attachCustomKeyEventHandler((ev) => {
-      if (ev.type !== 'keydown') return true
+      // o `keypress` é quem manda o caractere: sem barrar aqui também, o xterm mandaria o CR
+      // logo depois da quebra de linha (= o Claude enviaria o prompt)
+      if (ev.type !== 'keydown') return !quebraLinha(ev)
       const key = ev.key.toLowerCase()
+      /**
+       * Devolver `false` só faz o xterm ignorar o **keydown**: o caractere ainda chega pelo
+       * `keypress` seguinte. Sem o `preventDefault` aqui, o Shift+Espaço mandava a quebra de
+       * linha *e* o espaço logo depois.
+       */
+      const meu = (): false => {
+        ev.preventDefault()
+        return false
+      }
       if (ev.ctrlKey && ev.shiftKey && key === 'c') {
         const sel = term.getSelection()
         if (sel) void window.api.app.copy(sel)
-        return false
+        return meu()
       }
       if (ev.ctrlKey && !ev.shiftKey && key === 'c' && term.hasSelection()) {
         void window.api.app.copy(term.getSelection())
         term.clearSelection()
-        return false
+        return meu()
       }
       if (ev.ctrlKey && key === 'v') {
         pasteFromClipboard()
-        return false
+        return meu()
       }
       // Ctrl+Shift+L: limpa e manda o TUI se redesenhar. Serve quando algo de fora escreve
       // por cima da tela (outro processo herdando o console, saída perdida de um comando…).
@@ -118,16 +132,13 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
         const { cols, rows } = term
         window.api.pty.resize(tab.id, Math.max(2, cols - 1), rows)
         setTimeout(() => window.api.pty.resize(tab.id, cols, rows), 80)
-        return false
+        return meu()
       }
-      // Shift+Enter / Alt+Enter / Shift+Espaço = quebra de linha sem enviar. O xterm mandaria só CR
-      // (= enviar); o Claude Code entende ESC+CR, que é o que o /terminal-setup configura no VS Code.
-      if (
-        (ev.key === 'Enter' && (ev.shiftKey || ev.altKey) && !ev.ctrlKey) ||
-        (ev.key === ' ' && ev.shiftKey && !ev.ctrlKey && !ev.altKey)
-      ) {
+      // O xterm mandaria só CR (= enviar); o Claude Code entende ESC+CR, que é o que o
+      // /terminal-setup configura no VS Code. Medido num PTY com o claude.exe de verdade.
+      if (quebraLinha(ev)) {
         window.api.pty.write(tab.id, '\x1b\r')
-        return false
+        return meu()
       }
       // Atalhos globais do app — deixa o React tratar.
       if (
@@ -138,7 +149,6 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
           key === ',' ||
           key === 'b' ||
           key === 'f' ||
-          key === 'i' ||
           key === 'k' ||
           key === ' ' ||
           /^[0-9]$/.test(key))

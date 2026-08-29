@@ -109,14 +109,28 @@ valida que o caminho está dentro da pasta e termina em `.md`. Um `fs.watch` na 
 `docs:changed`, e o renderer recarrega a lista e o documento aberto — é assim que a edição feita
 pelo Claude aparece na hora. A pasta é pulada no scan de projetos.
 
-`src/renderer/src/lib/markdown.ts` é um renderizador próprio (títulos, listas, checkbox, tabela,
-citação, código, links). Escrito à mão de propósito: o HTML sai de uma lista branca, então um
-documento com `<script>` não vira código rodando no renderer. `toggleTask(md, n)` alterna a
-n-ésima caixinha — o clique na visualização edita o arquivo.
+`src/renderer/src/lib/markdown.ts` faz os **dois caminhos**, à mão de propósito:
+`render(md)` (markdown → HTML, de lista branca: um documento com `<script>` não vira código
+rodando no renderer) e `toMarkdown(el)` (HTML do editor → markdown, o que vai para o arquivo).
+O `toMarkdown` também entende o que o navegador inventa ao editar (`<div>`, `<b>`, `<i>` e a
+sublista que o `indent` deixa como **irmã** do `<li>`, não dentro dele). Ida e volta verificada
+no Chromium: é idempotente (títulos, listas, caixinhas, citação, código, tabela, link, quebra
+dura). Linha terminada em dois espaços = quebra dura (`<br>`).
 
-`DocView` salva sozinho (a store adia a gravação em 700 ms; marcar caixinha grava na hora) e
-alterna entre editar (texto puro) e ver (formatado). Abrir um documento **esconde** o terminal em
-vez de desmontar — desmontar mataria o xterm e o histórico da aba.
+`DocView` é um **editor rico** (`contentEditable` com a classe `.doc-rico`): escreve já formatado,
+com barra de B/I/S, H1-H3, listas, caixinha, citação, código, separador e link. Cada alteração é
+serializada para markdown e salva sozinha (a store adia 700 ms; caixinha grava na hora). Detalhes
+que doem se mexer:
+- só redesenha o HTML quando o texto vem **de fora** e o editor não está com o foco — senão o
+  cursor pula no meio da digitação (o `useRef ultimo` guarda o markdown que o editor gerou).
+- colar entra como **texto puro** (`insertText`), para não trazer HTML de fora para o documento.
+- caixinha dentro de `contentEditable` não marca sozinha: o clique é tratado na mão e o atributo
+  `checked` é a fonte de verdade (a propriedade o navegador mexe antes do evento).
+- `Ctrl+B`/`Ctrl+I` são formatação quando o foco está no editor — `App.tsx` deixa passar.
+- o botão `md` mostra o markdown cru, para conferir/consertar a fonte.
+
+Abrir um documento **esconde** o terminal em vez de desmontar — desmontar mataria o xterm e o
+histórico da aba.
 
 Ordem manual de documentos e projetos: `docsOrder` / `projectOrder` no config, arrastando na
 sidebar. O item arrastado fica num `useRef`, não em estado do React: o estado não chega a tempo do
@@ -149,28 +163,38 @@ processo. "Retomar" chama `pty:resume`, que faz `claude --resume <sessionId>` se
 existir em `~/.claude/projects/<slug>/` (`transcriptExists`) ou abre sessão nova na mesma pasta.
 Nada é spawnado sozinho — importante porque o app sobe junto com o Windows. Config: `restoreTabs`.
 
-## Caixa de prompt
-`PromptBox` embaixo do terminal (config `promptBox`, dá para esconder pelo botão): Enter quebra
-linha, **Ctrl+Enter envia** como bracketed paste (`ESC[200~ … ESC[201~`) + `\r` 90 ms depois.
-↑/↓ navegam o histórico (localStorage `wrapper-prompt-history`, 100 itens) quando o cursor está na
-ponta do texto; Ctrl+V com imagem e arrastar arquivo colam caminhos como no terminal; Esc devolve
-o foco ao xterm; **Ctrl+I** traz o foco de volta para a caixa.
+## Uma caixa só (a do Claude)
+O wrapper **não** tem mais caixa de prompt própria (o antigo `PromptBox`, config `promptBox`):
+eram duas caixas na tela, a dele e a do próprio Claude Code, e a do Claude não dá para esconder.
+Quem escreve é a caixa do Claude, no terminal. O que valia a pena da caixa antiga continua:
+Ctrl+V com imagem, arrastar arquivo e a sugestão de resposta.
 
 ## Shift+Enter (quebra de linha)
-O xterm mandaria só `CR` no Shift+Enter — o Claude Code lê isso como "enviar". `TerminalView`
-intercepta Shift+Enter/Alt+Enter e escreve **ESC+CR** (`\x1b\r`), que é o que o `/terminal-setup`
-configura em iTerm/VS Code. Verificado num PTY: o prompt passa a mostrar duas linhas sem enviar.
-Atenção: com Shift+Espaço mapeado, segurar Shift e bater espaço no meio de uma frase quebra linha
-em vez de dar espaço — se incomodar, é só tirar a condição em `TerminalView`.
+O xterm mandaria só `CR` no Shift+Enter — o Claude Code lê isso como "enviar", e o prompt ia
+embora numa linha só. `TerminalView` intercepta Shift+Enter/Alt+Enter e escreve **ESC+CR**
+(`\x1b\r`), que é o que o `/terminal-setup` configura em iTerm/VS Code.
+
+Pegadinha que fazia isso falhar: devolver `false` no `attachCustomKeyEventHandler` só faz o xterm
+ignorar o **keydown** — a tecla ainda chega pelo `keypress` seguinte (e lá vai o CR de novo,
+enviando o prompt). O handler agora barra as duas fases: `preventDefault()` no keydown (helper
+`meu()`, usado por todos os atalhos interceptados) e `false` também no `keypress` do Enter.
+
+Medido num PTY com o `claude.exe` de verdade: `ESC+CR`, `ESC[200~ \n ESC[201~` e
+`ESC[200~ \r ESC[201~` quebram linha igual; `ESC` sozinho é o "Esc again to clear" do TUI.
+
+> Shift+Espaço já foi mapeado para isso e **foi removido** (2026-08-29): quebrava linha no meio de
+> uma frase quando você segurava Shift para digitar maiúscula e batia espaço.
 
 ## Sugestão de resposta (o "prompt pré-preenchido" do Warp)
 Vem **sozinha** quando a sessão da aba ativa passa de `busy` para `idle` (config `autoSuggest`;
-**Ctrl+Espaço** ou o botão ✨ pedem na hora): `lastAssistantText()` lê a última fala do Claude no
-transcript e o main roda `claude -p "<instruções + mensagem>" --model haiku` com `cwd` numa pasta
-temporária (para não sujar o histórico do projeto). A sugestão chega como **placeholder apagado**
-(itálico, borda tracejada) — o `value` continua vazio; **Tab** transforma em texto editável,
-**Esc** descarta, Enter segue quebrando linha e nada é enviado até o Ctrl+Enter. Nunca atropela o
-que já está escrito. Gasta um Haiku por resposta do Claude, dá para desligar nas configurações.
+**Ctrl+Espaço** ou o botão ✨ da barra de abas pedem na hora): `lastAssistantText()` lê a última
+fala do Claude no transcript e o main roda `claude -p "<instruções + mensagem>" --model haiku` com
+`cwd` numa pasta temporária (para não sujar o histórico do projeto). A sugestão aparece numa
+**faixa fina acima do terminal** (`SuggestChip`): **Tab** (ou o clique) cola o texto na caixa do
+próprio Claude — dá para editar e nada é enviado até você apertar Enter —, **Esc** descarta.
+O listener de Tab/Esc fica em **captura** na janela e só existe enquanto a sugestão está na tela,
+senão roubaria teclas do Claude; Shift+Tab continua passando (é a troca de modo dele).
+Gasta um Haiku por resposta do Claude, dá para desligar nas configurações.
 O `claude -p` carrega o `~/.claude/CLAUDE.md` global, então o prompt manda ignorar memória/projeto
 (sem isso a sugestão vira a pergunta "qual projeto vamos trabalhar hoje"). A busca no transcript tenta 512 KB de cauda e depois 4 MB: trechos
 com muita chamada de ferramenta empurram o último texto para longe do fim.
@@ -200,9 +224,9 @@ br.com.guilherme.claudedynasty` (gravado via IPropertyStore no .lnk; sem isso o 
 
 ## Atalhos no app
 Ctrl+T (ou o "+" ao lado das abas) nova sessão Claude · Ctrl+W fecha aba · Ctrl+Tab alterna · Ctrl+B painel · Ctrl+, config ·
-Ctrl+F busca no terminal · Ctrl+I foca a caixa de prompt · Ctrl+Enter envia o prompt ·
+Ctrl+F busca no terminal ·
 Ctrl+K paleta (sessões e projetos) · Ctrl+1..9 vai para a aba n · Ctrl+0 pula para a próxima sessão ociosa ·
-Shift+Enter e Shift+Espaço quebram linha (terminal e caixa) · Tab aceita a sugestão · Ctrl+Espaço pede sugestão ·
+Shift+Enter quebra linha no terminal · Tab escreve a sugestão · Ctrl+Espaço pede sugestão ·
 Ctrl+Shift+C/V copia/cola no terminal · Ctrl+Shift+L limpa e redesenha o terminal · botão do meio fecha aba.
 
 ## Performance (medido em 2026-08-29, i9-9900KS, 16 threads)
@@ -218,7 +242,9 @@ Percentuais são da máquina inteira (100% = 16 threads).
 O que dominava o consumo era a bolinha de "trabalhando": animava `box-shadow`, que **força repaint
 a cada quadro**. Três bolinhas custavam ~6,5% da máquina com o app parado. A onda passou para um
 pseudo-elemento animando só `transform`/`opacity` (composto na GPU) e com `steps(3, end)` —
-3 atualizações por ciclo em vez de 60/s: 6,5% → 3,4% → **0,6%**.
+3 atualizações por ciclo em vez de 60/s: 6,5% → 3,4% → **0,6%**. Em 2026-08-29 a animação saiu de
+vez: **trabalhando é verde estático** e **ocioso é laranja** (`--idle`), que já dá para diferenciar
+sem custar quadro nenhum. Se um dia voltar a animar, só `transform`/`opacity` e em `steps()`.
 
 Regras que valem para não regredir:
 - Nunca animar `box-shadow`, `width`, `top` etc. Só `transform` e `opacity`.

@@ -24,7 +24,6 @@ const DEFAULTS: AppConfig = {
   closeToTray: true,
   remoteControl: false,
   restoreTabs: true,
-  promptBox: true,
   autoSuggest: true,
   startWithWindows: true,
   docsDir: '',

@@ -11,6 +11,8 @@
   --ok: #4ade80;
   --warn: #facc15;
   --danger: #f87171;
+  /* sessão ociosa: laranja, para não se confundir com o verde de "trabalhando" */
+  --idle: #ffa657;
   --sidebar-w: 236px;
   --panel-w: 340px;
   --topbar-h: 42px;
@@ -31,6 +33,7 @@
   --ok: #16a34a;
   --warn: #ca8a04;
   --danger: #dc2626;
+  --idle: #ea7317;
   color-scheme: light;
 }
 
@@ -339,38 +342,17 @@ button {
 }
 
 .dot.idle {
-  background: var(--ok);
-}
-
-.dot.busy {
-  background: var(--ok);
+  background: var(--idle);
 }
 
 /*
- * A onda sai num pseudo-elemento animando só transform/opacity: são compostas na GPU.
- * Animar box-shadow (como era antes) força repaint a cada quadro — três bolinhas dessas
- * custavam ~6,5% da máquina inteira, mesmo com o app parado.
+ * "trabalhando" é verde **estático**: nada de brilho nem de animação.
+ * A onda que existia aqui animava um pseudo-elemento e, mesmo composta na GPU, obrigava o
+ * compositor a redesenhar a janela; com box-shadow (a primeira versão) três bolinhas custavam
+ * ~6,5% da máquina parada. Se um dia voltar a animar, animar só transform/opacity e em steps().
  */
-.dot.busy::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
+.dot.busy {
   background: var(--ok);
-  opacity: 0.6;
-  will-change: transform, opacity;
-  /*
-   * steps(3): a onda avança em 3 estágios por ciclo em vez de 60 quadros por segundo.
-   * Animação contínua obriga o compositor a redesenhar a janela inteira a cada quadro —
-   * medido nesta máquina: box-shadow 6,5% da CPU, transform suave 3,4%, em degraus 0,6%.
-   */
-  animation: pulse 1.4s steps(3, end) infinite;
-}
-
-/* janela escondida/minimizada não anima nada */
-:root.oculto .dot.busy::after {
-  animation: none;
-  opacity: 0;
 }
 
 .dot.dead {
@@ -379,21 +361,6 @@ button {
 
 .dot.waiting {
   background: var(--warn);
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
-  70% {
-    transform: scale(2.6);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(2.6);
-    opacity: 0;
-  }
 }
 
 /* context menu */
@@ -711,58 +678,52 @@ button {
   border-top: 1px solid var(--border);
 }
 
-/* ---------- caixa de prompt ---------- */
-.promptbox {
-  border-top: 1px solid var(--border);
-  background: var(--bg-2);
-  padding: 6px 8px 5px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.promptbox textarea {
-  width: 100%;
-  min-height: 46px;
-  resize: none;
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 7px 9px;
-  font-family: var(--mono);
-  font-size: 13px;
-  line-height: 1.45;
-  outline: none;
-}
-
-.promptbox textarea:focus {
-  border-color: var(--accent);
-}
-
-.promptbox textarea::placeholder {
-  color: var(--muted);
-}
-
-/* sugestão pendente: mais apagada e em itálico, para não parecer texto digitado */
-.promptbox textarea.ghost::placeholder {
-  color: var(--muted);
-  opacity: 0.75;
-  font-style: italic;
-}
-
-.promptbox textarea.ghost {
-  border-style: dashed;
-}
-
-.promptbox .danger-fg {
-  color: var(--danger);
-}
-
-.promptbox-foot {
+/* ---------- faixa da sugestão de resposta ---------- */
+.suggest-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+  padding: 4px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-2);
+  min-height: 28px;
+}
+
+.suggest-icon {
+  flex: none;
+  opacity: 0.9;
+}
+
+/* o texto sugerido: uma linha só, o resto vai no title */
+.suggest-texto {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  color: var(--fg-2);
+  font-style: italic;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.suggest-texto:hover {
+  border-color: var(--accent);
+  color: var(--fg);
+}
+
+.suggest-bar .nowrap {
+  flex: none;
+  white-space: nowrap;
+}
+
+.suggest-bar .danger-fg {
+  color: var(--danger);
 }
 
 .empty-state {
@@ -884,6 +845,61 @@ button {
   line-height: 1.6;
   padding: 18px 22px;
   tab-size: 2;
+}
+
+/* ---------- editor rico da documentação ---------- */
+.doc-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.doc-tool {
+  min-width: 26px;
+  height: 24px;
+  padding: 0 6px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--fg-2);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.doc-tool:hover {
+  background: var(--bg-3);
+  border-color: var(--border);
+  color: var(--fg);
+}
+
+.doc-tool-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--border);
+}
+
+.doc-link {
+  width: 220px;
+  margin-left: 6px;
+}
+
+.doc-rico {
+  outline: none;
+  caret-color: var(--accent);
+}
+
+/* dentro do editor a caixinha é clicável, e o cursor não vira "texto" em cima dela */
+.doc-rico li.task input {
+  cursor: pointer;
+}
+
+.doc-rico:focus-visible {
+  outline: none;
 }
 
 .doc-body {

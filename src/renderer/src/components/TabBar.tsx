@@ -1,4 +1,5 @@
 import { useStore } from '@/store'
+import { requestSuggest } from '@/lib/promptBus'
 import { EFFORT_OPTIONS, MODEL_OPTIONS, modelLabel } from '@shared/options'
 
 export default function TabBar(): React.JSX.Element | null {
@@ -147,6 +148,19 @@ export default function TabBar(): React.JSX.Element | null {
             ))}
           </select>
         </label>
+        {active && active.kind === 'claude' && active.exited == null && !active.suspended && (
+          <button
+            className="btn ghost sm"
+            title={
+              'Sugere a resposta provável para a última mensagem do Claude (Ctrl+Espaço).\n' +
+              'Ela aparece numa faixa acima do terminal: Tab escreve na caixa do Claude, sem enviar.\n' +
+              'Roda um claude -p com Haiku, então consome um pouquinho da cota.'
+            }
+            onClick={() => requestSuggest(active.id)}
+          >
+            ✨ sugerir
+          </button>
+        )}
         {active && active.kind === 'claude' && active.exited == null && (
           <button
             className={`btn ghost rc-btn ${rcActive ? 'on' : ''}`}

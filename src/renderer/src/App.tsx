@@ -8,7 +8,7 @@ import TopBar from './components/TopBar'
 import Sidebar from './components/Sidebar'
 import TabBar from './components/TabBar'
 import TerminalView from './components/TerminalView'
-import PromptBox from './components/PromptBox'
+import SuggestChip from './components/SuggestChip'
 import ProjectPanel from './components/ProjectPanel'
 import SettingsModal from './components/SettingsModal'
 import CommandPalette from './components/CommandPalette'
@@ -78,7 +78,7 @@ function Main(): React.JSX.Element {
       useStore.setState({ live })
       // sugestão automática: só para a aba que você está olhando e só quando o Claude acabou
       const cfg = s.config
-      if (!cfg?.autoSuggest || !cfg.promptBox) return
+      if (!cfg?.autoSuggest) return
       const tab = s.tabs.find((t) => t.id === s.activeTabId)
       if (!tab || tab.kind !== 'claude' || tab.suspended || tab.exited != null) return
       const was = before.find((x) => x.tabId === tab.id)?.status
@@ -129,6 +129,9 @@ function Main(): React.JSX.Element {
       if (!e.ctrlKey) return
       const s = useStore.getState()
       const key = e.key.toLowerCase()
+      // dentro do editor de documento, Ctrl+B/I/U são formatação — não são atalhos do app
+      const noEditor = (e.target as HTMLElement | null)?.closest?.('.doc-rico, .doc-editor')
+      if (noEditor && (key === 'b' || key === 'i' || key === 'u')) return
       if (key === 't' && s.activeProject) {
         e.preventDefault()
         void s.openClaude(s.activeProject)
@@ -151,9 +154,6 @@ function Main(): React.JSX.Element {
       } else if (key === 'f') {
         e.preventDefault()
         openSearch(s.activeTabId)
-      } else if (key === 'i') {
-        e.preventDefault()
-        s.focusPrompt()
       } else if (e.key === ' ') {
         // pede a sugestão na hora (ela também vem sozinha quando o Claude termina)
         e.preventDefault()
@@ -195,6 +195,10 @@ function Main(): React.JSX.Element {
       <main className="main">
         {/* o documento só esconde o terminal: desmontar mataria o xterm e o histórico da aba */}
         {!activeDoc && <TabBar />}
+        {/* a única caixa de digitação é a do próprio Claude: a sugestão vem numa faixa fina */}
+        {!activeDoc && activeTab && !activeTab.suspended && activeTab.exited == null && (
+          <SuggestChip key={activeTab.id} tab={activeTab} />
+        )}
         <div className="term-area" style={activeDoc ? { display: 'none' } : undefined}>
           {tabs
             .filter((t) => !t.suspended)
@@ -250,9 +254,6 @@ function Main(): React.JSX.Element {
           )}
         </div>
         {activeDoc && <DocView />}
-        {!activeDoc && config?.promptBox && activeTab && !activeTab.suspended && activeTab.exited == null && (
-          <PromptBox key={activeTab.id} tab={activeTab} />
-        )}
       </main>
       {panelOpen && <ProjectPanel />}
       <SettingsModal />

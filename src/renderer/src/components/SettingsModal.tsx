@@ -80,14 +80,9 @@ export default function SettingsModal(): React.JSX.Element | null {
           </label>
           <span></span>
           <label className="check">
-            <input type="checkbox" checked={draft.promptBox} onChange={(e) => set({ promptBox: e.target.checked })} />
-            caixa de prompt multi-linha embaixo do terminal (Ctrl+Enter envia)
-          </label>
-          <span></span>
-          <label className="check">
             <input type="checkbox" checked={draft.autoSuggest} onChange={(e) => set({ autoSuggest: e.target.checked })} />
-            sugerir a resposta sozinho quando o Claude termina (placeholder, Tab aceita) — usa um{' '}
-            <code>claude -p</code> com Haiku a cada resposta
+            sugerir a resposta sozinho quando o Claude termina (faixa acima do terminal, Tab escreve na
+            caixa do Claude) — usa um <code>claude -p</code> com Haiku a cada resposta
           </label>
 
           <span>windows</span>

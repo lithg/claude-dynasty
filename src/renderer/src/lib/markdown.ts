@@ -58,6 +58,9 @@ interface Linha {
   nivel: number
 }
 
+/** Marcador interno da quebra dura dentro de um parágrafo (não aparece no documento). */
+const MARCA_BR = '@@QUEBRA@@'
+
 /**
  * Converte o documento inteiro. `linhaDaTarefa` numera as caixinhas na ordem em que aparecem,
  * para o clique saber qual `- [ ]` do arquivo alternar.
@@ -75,7 +78,8 @@ export function render(md: string): string {
   }
   const fechaParagrafo = (): void => {
     if (paragrafo.length) {
-      out.push(`<p>${inline(paragrafo.join(' '))}</p>`)
+      // linha terminada em dois espaços = quebra dura (o editor rico grava assim o Shift+Enter)
+      out.push(`<p>${inline(paragrafo.join(' ')).replace(new RegExp(`${MARCA_BR} ?`, 'g'), '<br>')}</p>`)
       paragrafo = []
     }
   }
@@ -183,7 +187,7 @@ export function render(md: string): string {
       continue
     }
 
-    paragrafo.push(linha.trim())
+    paragrafo.push(/ {2,}$/.test(linha) ? `${linha.trim()}${MARCA_BR}` : linha.trim())
     i++
   }
 
@@ -192,16 +196,144 @@ export function render(md: string): string {
   return out.join('\n')
 }
 
-/** Alterna a n-ésima caixinha do texto (mesma ordem que o render numerou). */
-export function toggleTask(md: string, indice: number): string {
-  let n = 0
-  return md
-    .split('\n')
-    .map((linha) => {
-      const m = /^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\].*)$/.exec(linha)
-      if (!m) return linha
-      if (n++ !== indice) return linha
-      return m[1] + (m[2].toLowerCase() === 'x' ? ' ' : 'x') + m[3]
-    })
-    .join('\n')
+/* ------------------------------------------------------------------ *
+ * Caminho de volta: HTML do editor → markdown.
+ *
+ * O editor da Documentação é um `contentEditable`: o usuário escreve já formatado e o que vai
+ * para o arquivo é o resultado desta serialização. Ela entende o que o `render` produz e também
+ * o que o próprio navegador inventa ao editar (`<div>`, `<b>`, `<i>`, listas aninhadas soltas).
+ * ------------------------------------------------------------------ */
+
+/** Texto de um nó inline: tira &nbsp; e quebras de linha "de formatação" do HTML. */
+function limpa(texto: string): string {
+  return texto.replace(/ /g, ' ').replace(/[\r\n]+/g, ' ')
+}
+
+/** Envolve em `**`, `*`, `~~`… preservando os espaços das pontas (senão o markdown não fecha). */
+function envolve(texto: string, marca: string): string {
+  const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(texto)!
+  return m[2] ? `${m[1]}${marca}${m[2]}${marca}${m[3]}` : texto
+}
+
+function inlineDe(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return limpa(node.textContent ?? '')
+  if (!(node instanceof HTMLElement)) return ''
+  const dentro = (): string => Array.from(node.childNodes).map(inlineDe).join('')
+  switch (node.tagName) {
+    case 'BR':
+      return '  \n'
+    case 'STRONG':
+    case 'B':
+      return envolve(dentro(), '**')
+    case 'EM':
+    case 'I':
+      return envolve(dentro(), '*')
+    case 'DEL':
+    case 'S':
+    case 'STRIKE':
+      return envolve(dentro(), '~~')
+    case 'CODE':
+      return node.closest('pre') ? dentro() : envolve(dentro(), '`')
+    case 'A': {
+      const href = node.getAttribute('href') ?? ''
+      const texto = dentro()
+      return href ? `[${texto || href}](${href})` : texto
+    }
+    case 'IMG':
+      return `![${node.getAttribute('alt') ?? ''}](${node.getAttribute('src') ?? ''})`
+    case 'INPUT':
+      return ''
+    default:
+      return dentro()
+  }
+}
+
+/** Conteúdo de um bloco em uma linha só (as quebras duras viram "  \n"). */
+function texto(el: HTMLElement): string {
+  return Array.from(el.childNodes)
+    .map(inlineDe)
+    .join('')
+    .replace(/[ \t]+$/gm, (s) => (s.length >= 2 ? '  ' : ''))
+    .trim()
+}
+
+function lista(el: HTMLElement, nivel: number): string {
+  const linhas: string[] = []
+  const recuo = '  '.repeat(nivel)
+  let n = 1
+  for (const filho of Array.from(el.children)) {
+    // o navegador às vezes deixa a sublista como irmã do <li>, não dentro dele
+    if (filho.tagName === 'UL' || filho.tagName === 'OL') {
+      linhas.push(lista(filho as HTMLElement, nivel + 1))
+      continue
+    }
+    if (filho.tagName !== 'LI') continue
+    const li = filho as HTMLElement
+    const subs = Array.from(li.children).filter((c) => c.tagName === 'UL' || c.tagName === 'OL')
+    const corpo = Array.from(li.childNodes)
+      .filter((c) => !(c instanceof HTMLElement && (c.tagName === 'UL' || c.tagName === 'OL')))
+      .map(inlineDe)
+      .join('')
+      .trim()
+    const caixa = li.querySelector<HTMLInputElement>('input[type=checkbox]')
+    const marca = el.tagName === 'OL' ? `${n++}.` : '-'
+    linhas.push(`${recuo}${marca} ${caixa ? (caixa.checked ? '[x] ' : '[ ] ') : ''}${corpo}`)
+    for (const sub of subs) linhas.push(lista(sub as HTMLElement, nivel + 1))
+  }
+  return linhas.filter(Boolean).join('\n')
+}
+
+function tabela(el: HTMLElement): string {
+  const linhas: string[] = []
+  Array.from(el.querySelectorAll('tr')).forEach((tr, i) => {
+    const celulas = Array.from(tr.children).map((c) => inlineDe(c).trim().replace(/\|/g, '\\|'))
+    if (!celulas.length) return
+    linhas.push(`| ${celulas.join(' | ')} |`)
+    if (i === 0) linhas.push(`|${celulas.map(() => ' --- ').join('|')}|`)
+  })
+  return linhas.join('\n')
+}
+
+function bloco(node: Node, nivel: number): string {
+  if (node.nodeType === Node.TEXT_NODE) return limpa(node.textContent ?? '').trim()
+  if (!(node instanceof HTMLElement)) return ''
+  const tag = node.tagName
+  if (/^H[1-6]$/.test(tag)) {
+    const t = texto(node)
+    return t ? `${'#'.repeat(Number(tag[1]))} ${t}` : ''
+  }
+  if (tag === 'UL' || tag === 'OL') return lista(node, nivel)
+  if (tag === 'BLOCKQUOTE')
+    return blocosDe(node, nivel)
+      .join('\n\n')
+      .split('\n')
+      .map((l) => (l ? `> ${l}` : '>'))
+      .join('\n')
+  if (tag === 'PRE') {
+    const code = node.querySelector('code')
+    const lang = /lang-([\w+-]+)/.exec(code?.className ?? '')?.[1] ?? ''
+    const corpo = (code ?? node).textContent?.replace(/\n+$/, '') ?? ''
+    return '```' + lang + '\n' + corpo + '\n```'
+  }
+  if (tag === 'HR') return '---'
+  if (tag === 'TABLE') return tabela(node)
+  if (tag === 'BR') return ''
+  // <p>, <div> e o que mais o contentEditable criar
+  return texto(node)
+}
+
+function blocosDe(pai: Node, nivel: number): string[] {
+  return Array.from(pai.childNodes)
+    .map((f) => bloco(f, nivel))
+    .filter((b) => b !== '')
+}
+
+/** HTML do editor rico → markdown para gravar no arquivo. */
+export function toMarkdown(root: HTMLElement): string {
+  const md = blocosDe(root, 0)
+    .join('\n\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]+$/gm, (s) => (s.length >= 2 ? '  ' : ''))
+    .trim()
+  return md ? `${md}\n` : ''
 }

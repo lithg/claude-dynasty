@@ -140,9 +140,7 @@ export interface AppConfig {
   remoteControl: boolean
   /** reabrir as abas da última execução (suspensas; retomam com --resume ao clicar) */
   restoreTabs: boolean
-  /** caixa de prompt multi-linha embaixo do terminal */
-  promptBox: boolean
-  /** sugerir sozinho a resposta quando o Claude termina (placeholder, aceito com Tab) */
+  /** sugerir sozinho a resposta quando o Claude termina (faixa acima do terminal, Tab aceita) */
   autoSuggest: boolean
   /** iniciar com o Windows, escondido na bandeja */
   startWithWindows: boolean
