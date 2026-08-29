@@ -1,4 +1,5 @@
 import { useStore } from '@/store'
+import logo from '@/assets/logo.png'
 import { humanizeReset, usageColor } from '@/lib/format'
 import { THEMES } from '@shared/themes'
 
@@ -21,8 +22,8 @@ export default function TopBar(): React.JSX.Element {
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="logo">◆</span>
-        <span>Claude Wrapper</span>
+        <img className="logo" src={logo} alt="" width={22} height={22} />
+        <span>Claude Dynasty</span>
         {name && <span className="crumb">/ {name}</span>}
       </div>
 

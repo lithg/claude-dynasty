@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { AppConfig } from '@shared/types'
@@ -10,7 +10,7 @@ const DEFAULTS: AppConfig = {
   hidden: [],
   skipPermissions: true,
   perProject: {},
-  theme: 'dark',
+  theme: 'dracula',
   fontSize: 13,
   fontFamily: "'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace",
   claudeBin: '',
@@ -34,7 +34,20 @@ let cache: AppConfig | null = null
 function file(): string {
   const dir = app.getPath('userData')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  return join(dir, 'config.json')
+  const atual = join(dir, 'config.json')
+  // O app já se chamou "Claude Wrapper": traz config e abas da pasta antiga uma única vez,
+  // senão quem já usava perderia raiz, fixados, zoom e as abas abertas.
+  if (!existsSync(atual)) {
+    const antiga = join(app.getPath('appData'), 'wrapper-claude')
+    for (const nome of ['config.json', 'tabs.json']) {
+      try {
+        if (existsSync(join(antiga, nome))) copyFileSync(join(antiga, nome), join(dir, nome))
+      } catch {
+        /* sem permissão: começa do zero mesmo */
+      }
+    }
+  }
+  return atual
 }
 
 export function configPath(): string {

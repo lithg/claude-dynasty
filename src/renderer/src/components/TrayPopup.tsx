@@ -78,7 +78,7 @@ export default function TrayPopup(): React.JSX.Element {
             Atualizar
           </button>
           <button className="tp-link tp-open" onClick={() => void window.api.app.showMain()}>
-            Abrir Claude Wrapper
+            Abrir Claude Dynasty
           </button>
         </span>
       </div>

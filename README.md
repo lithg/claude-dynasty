@@ -1,4 +1,4 @@
-# Wrapper Claude
+# Claude Dynasty
 
 Painel pessoal para tocar os projetos de `~/Documents/GitHub` com o Claude Code sem abrir terminal
 na mão. Clica no projeto → sessão `claude` já aberta na pasta, com `--dangerously-skip-permissions`
@@ -11,7 +11,7 @@ Claude Code e deixar ele montar.
 ```
 pnpm install
 pnpm build
-pnpm start          # ou: atalho "Claude Wrapper" (Menu Iniciar / área de trabalho) ou start.vbs
+pnpm start          # ou: atalho "Claude Dynasty" (Menu Iniciar / área de trabalho) ou start.vbs
 ```
 Desenvolvimento com hot reload: `pnpm dev`.
 
@@ -46,4 +46,4 @@ Desenvolvimento com hot reload: `pnpm dev`.
 - **Ctrl+V** cola imagem direto no Claude; arrastar arquivo cola o caminho.
 - **Inicia com o Windows** escondido na bandeja (checkbox nas configurações).
 
-Config em `%APPDATA%\wrapper-claude\config.json`.
+Config em `%APPDATA%\claude-dynasty\config.json`.

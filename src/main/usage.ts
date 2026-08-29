@@ -10,7 +10,7 @@ import type { UsageInfo, UsageLimit } from '@shared/types'
 const CREDENTIALS_PATH = join(homedir(), '.claude', '.credentials.json')
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
 const OAUTH_BETA = 'oauth-2025-04-20'
-const USER_AGENT = 'wrapper-claude/0.1'
+const USER_AGENT = 'claude-dynasty/0.1'
 
 const LABELS: Record<string, string> = {
   session: 'Sessão (5h)',

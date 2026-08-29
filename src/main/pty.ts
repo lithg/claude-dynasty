@@ -36,7 +36,7 @@ export class PtyManager {
     Object.assign(env, {
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
-      TERM_PROGRAM: 'wrapper-claude',
+      TERM_PROGRAM: 'claude-dynasty',
       WRAPPER_CLAUDE: '1',
       WRAPPER_TAB_ID: id,
       ...(spec.env ?? {})

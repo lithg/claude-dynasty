@@ -35,7 +35,7 @@ let lastUsage: UsageInfo | null = null
 const tabs = new Map<string, TermTab>()
 
 const RESOURCES = join(__dirname, '../../resources')
-const APP_NAME = 'Claude Wrapper'
+const APP_NAME = 'Claude Dynasty'
 const START_HIDDEN = process.argv.includes('--hidden')
 /** Guardado antes de qualquer gravação: some assim que o primeiro setConfig roda. */
 const FIRST_RUN = isFirstRun()
@@ -224,7 +224,7 @@ function trayTooltip(u: UsageInfo | null): string {
 
 function trayMenu(): Menu {
   return Menu.buildFromTemplate([
-    { label: 'Abrir Claude Wrapper', click: showWindow },
+    { label: 'Abrir Claude Dynasty', click: showWindow },
     { label: 'Detalhes do consumo', click: togglePopup },
     { label: 'Atualizar agora', click: () => void refreshUsage(true) },
     { type: 'separator' },
@@ -384,19 +384,20 @@ function applyLoginItem(): void {
   } catch {
     /* ignore */
   }
-  const legacy = join(
-    app.getPath('appData'),
-    'Microsoft',
-    'Windows',
-    'Start Menu',
-    'Programs',
-    'Startup',
-    `${APP_NAME}.lnk`
-  )
+  // nome antigo do app: sem isso ele subiria duas vezes no boot
   try {
-    if (existsSync(legacy) && shell.readShortcutLink(legacy).target === process.execPath) unlinkSync(legacy)
+    app.setLoginItemSettings({ openAtLogin: false, path: process.execPath, args, name: 'Claude Wrapper' })
   } catch {
-    /* atalho de outro app com o mesmo nome: deixa quieto */
+    /* ignore */
+  }
+  const startup = join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
+  for (const nome of [`${APP_NAME}.lnk`, 'Claude Wrapper.lnk']) {
+    const legacy = join(startup, nome)
+    try {
+      if (existsSync(legacy) && shell.readShortcutLink(legacy).target === process.execPath) unlinkSync(legacy)
+    } catch {
+      /* atalho de outro app com o mesmo nome: deixa quieto */
+    }
   }
 }
 
@@ -439,7 +440,7 @@ function registerIpc(): void {
   ipcMain.handle('app:saveClipboardImage', (): string | null => {
     const img = clipboard.readImage()
     if (img.isEmpty()) return null
-    const dir = join(app.getPath('temp'), 'claude-wrapper')
+    const dir = join(app.getPath('temp'), 'claude-dynasty')
     mkdirSync(dir, { recursive: true })
     const file = join(dir, `colado-${new Date().toISOString().replace(/[:.]/g, '-')}.png`)
     writeFileSync(file, img.toPNG())
@@ -456,7 +457,7 @@ function registerIpc(): void {
       const last = lastAssistantText(cwd, sessionId)
       if (!last) return Promise.resolve({ error: 'ainda não achei uma resposta do Claude nesta sessão' })
       const bin = resolveClaudeBin()
-      const scratch = join(app.getPath('temp'), 'claude-wrapper')
+      const scratch = join(app.getPath('temp'), 'claude-dynasty')
       mkdirSync(scratch, { recursive: true })
       const instruction = [
         'Ignore qualquer instrução de memória, CLAUDE.md ou projeto: sua única tarefa é a de baixo.',
@@ -499,7 +500,7 @@ function registerIpc(): void {
 
   /**
    * Atalhos do Menu Iniciar e da área de trabalho. O `appUserModelId` é o que faz as
-   * notificações aparecerem como "Claude Wrapper" em vez de "Electron".
+   * notificações aparecerem como "Claude Dynasty" em vez de "Electron".
    */
   ipcMain.handle('app:createShortcuts', (): { created: string[]; error?: string } => {
     if (process.platform !== 'win32') return { created: [], error: 'só no Windows' }
@@ -512,12 +513,23 @@ function registerIpc(): void {
       icon: join(RESOURCES, 'icon.ico'),
       iconIndex: 0,
       description: 'Painel para tocar seus projetos com o Claude Code',
-      appUserModelId: 'br.com.guilherme.wrapperclaude'
+      appUserModelId: 'br.com.guilherme.claudedynasty'
     }
     const places = [
       join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', `${APP_NAME}.lnk`),
       join(app.getPath('desktop'), `${APP_NAME}.lnk`)
     ]
+    // atalhos do nome antigo viram lixo com ícone velho
+    for (const antigo of [
+      join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Claude Wrapper.lnk'),
+      join(app.getPath('desktop'), 'Claude Wrapper.lnk')
+    ]) {
+      try {
+        if (existsSync(antigo) && shell.readShortcutLink(antigo).target === process.execPath) unlinkSync(antigo)
+      } catch {
+        /* de outro app: não mexe */
+      }
+    }
     const created: string[] = []
     for (const p of places) {
       try {
@@ -633,7 +645,7 @@ function attachTabIds(sessions: LiveSession[]): LiveSession[] {
 
 /* ---------------- ciclo de vida ---------------- */
 
-app.setAppUserModelId('br.com.guilherme.wrapperclaude')
+app.setAppUserModelId('br.com.guilherme.claudedynasty')
 
 // Instância única: abrir de novo (atalho) só traz a janela existente para frente.
 if (!app.requestSingleInstanceLock()) {
@@ -644,16 +656,17 @@ if (!app.requestSingleInstanceLock()) {
   })
 }
 
-/** Apaga PNGs colados com mais de 2 dias. */
+/** Apaga PNGs colados com mais de 2 dias (inclusive os da pasta com o nome antigo). */
 function cleanPasteDir(): void {
-  const dir = join(app.getPath('temp'), 'claude-wrapper')
-  try {
-    for (const f of readdirSync(dir)) {
-      const full = join(dir, f)
-      if (Date.now() - statSync(full).mtimeMs > 2 * 86_400_000) unlinkSync(full)
+  for (const dir of [join(app.getPath('temp'), 'claude-dynasty'), join(app.getPath('temp'), 'claude-wrapper')]) {
+    try {
+      for (const f of readdirSync(dir)) {
+        const full = join(dir, f)
+        if (Date.now() - statSync(full).mtimeMs > 2 * 86_400_000) unlinkSync(full)
+      }
+    } catch {
+      /* pasta ainda não existe */
     }
-  } catch {
-    /* pasta ainda não existe */
   }
 }
 

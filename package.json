@@ -1,5 +1,5 @@
 {
-  "name": "wrapper-claude",
+  "name": "claude-dynasty",
   "version": "0.1.0",
   "description": "Painel pessoal para orquestrar projetos com Claude Code (substituto do Warp)",
   "main": "./out/main/index.js",
@@ -35,8 +35,8 @@
     "vite": "^7.0.0"
   },
   "build": {
-    "appId": "br.com.guilherme.wrapperclaude",
-    "productName": "Claude Wrapper",
+    "appId": "br.com.guilherme.claudedynasty",
+    "productName": "Claude Dynasty",
     "directories": {
       "output": "dist"
     },

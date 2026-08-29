@@ -1,4 +1,4 @@
-# Instalar o Claude Wrapper em outra máquina
+# Instalar o Claude Dynasty em outra máquina
 
 Guia para montar o app numa máquina nova. Foi escrito para você **colar no Claude Code e deixar
 ele executar** — cada passo tem o comando e o que conferir depois. Também dá para seguir na mão.
@@ -31,8 +31,8 @@ não abre no terminal, o wrapper também não vai abrir.
 ## 2. Clonar e compilar
 
 ```bash
-git clone <url-do-repo> "Wrapper Claude"
-cd "Wrapper Claude"
+git clone <url-do-repo> "Claude Dynasty"
+cd "Claude Dynasty"
 pnpm install          # baixa Electron e node-pty (prebuild, não compila nada em C++)
 pnpm build            # gera out/
 ```
@@ -57,14 +57,14 @@ Configurações (Ctrl+,), campo `claude.exe`.
 
 ## 4. Atalhos e início com o Windows
 
-Os atalhos ("Claude Wrapper" no Menu Iniciar e na área de trabalho) são criados pelo próprio app —
+Os atalhos ("Claude Dynasty" no Menu Iniciar e na área de trabalho) são criados pelo próprio app —
 pela tela de boas-vindas ou por Configurações → **criar atalhos**. Eles gravam o
-`AppUserModelID`, que é o que faz as notificações aparecerem como "Claude Wrapper" em vez de
+`AppUserModelID`, que é o que faz as notificações aparecerem como "Claude Dynasty" em vez de
 "Electron".
 
 Iniciar junto com o Windows (escondido na bandeja) é o checkbox `windows → iniciar junto com o
 Windows` em Configurações. Ele escreve/apaga a chave
-`HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Claude Wrapper`.
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Claude Dynasty`.
 
 ## 5. Conferir se ficou de pé
 
@@ -76,7 +76,7 @@ Windows` em Configurações. Ele escreve/apaga a chave
 
 ## 6. Ajustes que talvez você queira
 
-Tudo em Configurações (Ctrl+,), gravado em `%APPDATA%\wrapper-claude\config.json`:
+Tudo em Configurações (Ctrl+,), gravado em `%APPDATA%\claude-dynasty\config.json`:
 
 - **permissões**: `--dangerously-skip-permissions` vem **ligado** por padrão (o dono do projeto
   original usa assim). Se você não quer que o Claude execute coisas sem perguntar, **desligue**.
@@ -109,4 +109,4 @@ E reabra o app (bandeja → Sair → atalho). As abas abertas voltam suspensas e
 Só leitura, e só local: lista as pastas do diretório escolhido, lê `CLAUDE.md`, `package.json` e o
 git de cada projeto, e lê os arquivos que o Claude Code já mantém em `~/.claude` (sessões vivas,
 histórico e o token, este último apenas para consultar o consumo). Não grava nada fora de
-`%APPDATA%\wrapper-claude`, dos atalhos e da chave `Run` (quando você liga o início automático).
+`%APPDATA%\claude-dynasty`, dos atalhos e da chave `Run` (quando você liga o início automático).

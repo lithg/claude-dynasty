@@ -1,10 +1,16 @@
-# Wrapper Claude — Contexto do Projeto
+# Claude Dynasty — Contexto do Projeto
 
 ## O que é
 App desktop pessoal (Windows) que substitui o Warp como "casa" do Claude Code: lista os projetos
 de `~/Documents/GitHub`, abre uma sessão `claude` num terminal embutido com um clique, mostra o
 estado de cada projeto (sessões vivas, git, infos do CLAUDE.md, histórico de sessões) e o consumo
 da conta (5h / semanal). Uso próprio, sem distribuição.
+
+> O app se chamava **Claude Wrapper** até 2026-08-29. A pasta do repo na máquina do Guilherme
+> continua `Documents/GitHub/Wrapper Claude`; o que mudou é o nome exibido, o `appId`
+> (`br.com.guilherme.claudedynasty`), a pasta de config (`%APPDATA%/claude-dynasty`, com cópia
+> automática da antiga na primeira abertura) e os ícones (logo da Dynasty, gerado de
+> `D:/Dynasty/Logo Dynasty PNG.png` com recorte circular).
 
 ## Stack
 | Camada | Tecnologia |
@@ -13,7 +19,7 @@ da conta (5h / semanal). Uso próprio, sem distribuição.
 | Renderer | React 19 + TypeScript + Zustand, CSS puro com variáveis (tema dark/light/system) |
 | Terminal | @xterm/xterm 6 (+ fit, webgl, web-links) |
 | PTY | node-pty 1.1 (ConPTY; prebuild N-API, sem rebuild) |
-| Config | `%APPDATA%/wrapper-claude/config.json` |
+| Config | `%APPDATA%/claude-dynasty/config.json` |
 | Ícones | gerados por script (PowerShell/System.Drawing) em `resources/` — losango laranja |
 
 > `@vitejs/plugin-react` fica em **^5** — a 6.x exige Vite 8 e quebra o electron-vite 5.
@@ -57,14 +63,14 @@ pnpm build      # gera out/
 pnpm start      # roda o build (electron-vite preview)
 pnpm typecheck
 ```
-Atalho de uso diário: "Claude Wrapper" no Menu Iniciar e na área de trabalho (apontam para
+Atalho de uso diário: "Claude Dynasty" no Menu Iniciar e na área de trabalho (apontam para
 `node_modules\electron\dist\electron.exe "<pasta do projeto>"`, ícone em `resources/icon.ico`).
 `start.vbs` faz o mesmo. Instância única: abrir de novo só traz a janela para frente.
 Fechar a janela esconde na bandeja (config `closeToTray`). O ícone da bandeja é o mesmo do
 antigo Usage Tray (anel + número do limite mais alto, desenhado em canvas no renderer e
 enviado ao main via `tray:rendered`); clique esquerdo abre o popup de consumo (janela
-`?popup=1`, componente `TrayPopup`), botão direito tem "Abrir Claude Wrapper" / "Sair",
-duplo clique abre a janela. `--hidden` inicia só na bandeja. **Iniciar com o Windows** é a chave `HKCU\...\Run\Claude Wrapper`
+`?popup=1`, componente `TrayPopup`), botão direito tem "Abrir Claude Dynasty" / "Sair",
+duplo clique abre a janela. `--hidden` inicia só na bandeja. **Iniciar com o Windows** é a chave `HKCU\...\Run\Claude Dynasty`
 (escrita por `app.setLoginItemSettings` com `--hidden`), ligada/desligada no checkbox das
 configurações (`startWithWindows`). O antigo atalho em `Shell:Startup` é apagado no primeiro start
 para o app não subir duas vezes; `getLoginItemSettings()` não enxerga a própria chave no Windows,
@@ -90,7 +96,7 @@ Claude Code grava a escolha como **padrão global** em `~/.claude/settings.json`
 `isFirstRun()` = não existe `config.json` ainda. Nesse caso o renderer mostra o `WelcomeModal`:
 escolhe a pasta raiz dos projetos (`app:pickFolder` → `dialog.showOpenDialog`) e oferece criar os
 atalhos (`app:createShortcuts` → `shell.writeShortcutLink` com `appUserModelId`, que é o que faz o
-toast dizer "Claude Wrapper"). O botão de criar atalhos também está nas Configurações.
+toast dizer "Claude Dynasty"). O botão de criar atalhos também está nas Configurações.
 Os defaults do `config.ts` são neutros (`pinned: []`, raiz em `~/Documents/GitHub`) — nada de
 projeto pessoal embutido. O passo a passo para montar em outra máquina está em `INSTALAR.md`,
 escrito para o Claude Code do dono da máquina executar.
@@ -110,12 +116,12 @@ apenas nomeia a sessão no claude.ai.
 ## Ctrl+V com imagem
 O Claude Code **não reage** ao Ctrl+V vindo do PTY (testado: 0x16, kitty `CSI 118;5u` e
 win32-input-mode — só redesenha). O que funciona é o truque do Warp: `TerminalView` intercepta
-Ctrl+V, o main salva a imagem em `%TEMP%\claude-wrapper\colado-<ts>.png` e o caminho é colado
+Ctrl+V, o main salva a imagem em `%TEMP%\claude-dynasty\colado-<ts>.png` e o caminho é colado
 (bracketed paste) — o Claude reconhece caminhos `.png/.jpg` e vira `[Image #N]`. PNGs com mais
 de 2 dias são apagados no start. Texto cola normal. Arrastar arquivos cola os caminhos.
 
 ## Abas restauradas
-As abas abertas são gravadas em `%APPDATA%/wrapper-claude/tabs.json` (a cada spawn/kill/exit e no
+As abas abertas são gravadas em `%APPDATA%/claude-dynasty/tabs.json` (a cada spawn/kill/exit e no
 `before-quit`). Ao abrir, elas voltam **suspensas**: aparecem na barra com `(suspensa)`, sem
 processo. "Retomar" chama `pty:resume`, que faz `claude --resume <sessionId>` se o transcript ainda
 existir em `~/.claude/projects/<slug>/` (`transcriptExists`) ou abre sessão nova na mesma pasta.
@@ -166,8 +172,8 @@ disposed".
 
 ## Notificações
 Só para sessões abertas pelo wrapper (config `notifyExternal` inclui as externas). Os toasts
-mostram "Claude Wrapper" porque os atalhos têm `System.AppUserModel.ID =
-br.com.guilherme.wrapperclaude` (gravado via IPropertyStore no .lnk; sem isso o Windows mostra
+mostram "Claude Dynasty" porque os atalhos têm `System.AppUserModel.ID =
+br.com.guilherme.claudedynasty` (gravado via IPropertyStore no .lnk; sem isso o Windows mostra
 "Electron").
 
 ## Atalhos no app

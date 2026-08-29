@@ -105,7 +105,11 @@ button {
 }
 
 .brand .logo {
-  color: var(--accent);
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .brand .crumb {

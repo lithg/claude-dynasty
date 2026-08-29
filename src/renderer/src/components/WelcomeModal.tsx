@@ -47,7 +47,7 @@ export default function WelcomeModal(): React.JSX.Element | null {
     <div className="modal-back">
       <div className="modal welcome" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <span>Bem-vindo ao Claude Wrapper</span>
+          <span>Bem-vindo ao Claude Dynasty</span>
         </div>
         <div className="modal-body">
           <p>
