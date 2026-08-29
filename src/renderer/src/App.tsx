@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@/store'
 import { feedTerm } from '@/lib/terminals'
+import { renderTrayIcon } from '@/lib/trayIcon'
+import { resolveTheme, type Theme } from '@shared/themes'
 import TopBar from './components/TopBar'
 import Sidebar from './components/Sidebar'
 import TabBar from './components/TabBar'
 import TerminalView from './components/TerminalView'
-import PromptBox from './components/PromptBox'
 import ProjectPanel from './components/ProjectPanel'
 import SettingsModal from './components/SettingsModal'
+import TrayPopup from './components/TrayPopup'
 
-function useDark(theme: 'dark' | 'light' | 'system' | undefined): boolean {
+const IS_POPUP = new URLSearchParams(window.location.search).has('popup')
+
+function useSystemDark(): boolean {
   const [sys, setSys] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches)
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -17,10 +21,37 @@ function useDark(theme: 'dark' | 'light' | 'system' | undefined): boolean {
     mq.addEventListener('change', h)
     return () => mq.removeEventListener('change', h)
   }, [])
-  return theme === 'system' || !theme ? sys : theme === 'dark'
+  return sys
+}
+
+const UI_VARS: Record<keyof Theme['ui'], string> = {
+  bg: '--bg',
+  bg2: '--bg-2',
+  bg3: '--bg-3',
+  border: '--border',
+  fg: '--fg',
+  fg2: '--fg-2',
+  muted: '--muted',
+  accent: '--accent',
+  accentFg: '--accent-fg',
+  ok: '--ok',
+  warn: '--warn',
+  danger: '--danger'
+}
+
+function applyTheme(t: Theme): void {
+  const root = document.documentElement
+  for (const [k, v] of Object.entries(UI_VARS)) root.style.setProperty(v, t.ui[k as keyof Theme['ui']])
+  root.dataset.theme = t.dark ? 'dark' : 'light'
+  root.style.setProperty('color-scheme', t.dark ? 'dark' : 'light')
 }
 
 export default function App(): React.JSX.Element {
+  if (IS_POPUP) return <TrayPopup />
+  return <Main />
+}
+
+function Main(): React.JSX.Element {
   const init = useStore((s) => s.init)
   const config = useStore((s) => s.config)
   const tabs = useStore((s) => s.tabs)
@@ -28,14 +59,20 @@ export default function App(): React.JSX.Element {
   const activeProject = useStore((s) => s.activeProject)
   const panelOpen = useStore((s) => s.panelOpen)
   const projects = useStore((s) => s.projects)
-  const dark = useDark(config?.theme)
+  const systemDark = useSystemDark()
+  const theme = useMemo(() => resolveTheme(config?.theme ?? 'dark', systemDark), [config?.theme, systemDark])
 
   useEffect(() => {
     void init()
     const offData = window.api.pty.onData((id, data) => feedTerm(id, data))
     const offExit = window.api.pty.onExit((id, code) => useStore.getState().markExited(id, code))
     const offLive = window.api.sessions.onLive((live) => useStore.setState({ live }))
-    const usageTimer = setInterval(() => void useStore.getState().refreshUsage(), 60_000)
+    const offUsage = window.api.usage.onUpdate((usage) => {
+      if (usage) useStore.setState({ usage })
+    })
+    const offCfg = window.api.config.onUpdate((config) => useStore.setState({ config }))
+    const offTabs = window.api.tabs.onUpdate((tab) => useStore.getState().updateTab(tab))
+    const offTray = window.api.tray.onRender((percent) => window.api.tray.rendered(renderTrayIcon(percent)))
     const detailsTimer = setInterval(() => {
       const p = useStore.getState().activeProject
       if (p) void useStore.getState().loadDetails(p, true)
@@ -44,14 +81,15 @@ export default function App(): React.JSX.Element {
       offData()
       offExit()
       offLive()
-      clearInterval(usageTimer)
+      offUsage()
+      offCfg()
+      offTabs()
+      offTray()
       clearInterval(detailsTimer)
     }
   }, [init])
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light'
-  }, [dark])
+  useEffect(() => applyTheme(theme), [theme])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -85,6 +123,7 @@ export default function App(): React.JSX.Element {
 
   const activeTab = tabs.find((t) => t.id === activeTabId)
   const project = projects.find((p) => p.path === activeProject)
+  const fontFamily = theme.font ?? config?.fontFamily ?? 'Consolas, monospace'
 
   return (
     <div className={`app ${panelOpen ? '' : 'no-panel'}`}>
@@ -98,9 +137,9 @@ export default function App(): React.JSX.Element {
               key={t.id}
               tab={t}
               visible={t.id === activeTabId}
-              dark={dark}
+              colors={theme.term}
               fontSize={config?.fontSize ?? 13}
-              fontFamily={config?.fontFamily ?? 'Consolas, monospace'}
+              fontFamily={fontFamily}
             />
           ))}
           {!activeTab && (
@@ -127,7 +166,6 @@ export default function App(): React.JSX.Element {
             </div>
           )}
         </div>
-        {activeTab && activeTab.kind === 'claude' && activeTab.exited == null && <PromptBox tabId={activeTab.id} />}
       </main>
       {panelOpen && <ProjectPanel />}
       <SettingsModal />

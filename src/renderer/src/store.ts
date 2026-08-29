@@ -37,6 +37,9 @@ interface State {
   closeTab: (id: string) => Promise<void>
   setActiveTab: (id: string) => void
   markExited: (id: string, code: number) => void
+  updateTab: (tab: TermTab) => void
+  /** envia /rc para a aba (liga/desliga Remote Control na sessão em andamento) */
+  toggleRc: (id: string) => void
 
   setSettingsOpen: (v: boolean) => void
   setPanelOpen: (v: boolean) => void
@@ -166,6 +169,15 @@ export const useStore = create<State>((set, get) => ({
 
   markExited: (id, code) => {
     set((s) => ({ tabs: s.tabs.map((t) => (t.id === id ? { ...t, exited: code } : t)) }))
+  },
+
+  updateTab: (tab) => {
+    set((s) => ({ tabs: s.tabs.map((t) => (t.id === tab.id ? { ...t, ...tab } : t)) }))
+  },
+
+  toggleRc: (id) => {
+    window.api.pty.write(id, '/rc')
+    setTimeout(() => window.api.pty.write(id, '\r'), 150)
   },
 
   setSettingsOpen: (v) => set({ settingsOpen: v }),

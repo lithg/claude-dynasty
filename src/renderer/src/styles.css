@@ -347,6 +347,10 @@ button {
   background: var(--danger);
 }
 
+.dot.waiting {
+  background: var(--warn);
+}
+
 @keyframes pulse {
   0% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent);
@@ -537,30 +541,8 @@ button {
   font-weight: 600;
 }
 
-.promptbox {
-  display: flex;
-  gap: 6px;
-  padding: 6px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-2);
-  align-items: flex-end;
-}
 
-.promptbox textarea {
-  flex: 1;
-  resize: none;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 8px;
-  outline: none;
-  font-family: var(--mono);
-  font-size: 12.5px;
-}
 
-.promptbox textarea:focus {
-  border-color: var(--accent);
-}
 
 /* ---------- panel ---------- */
 .panel {
@@ -838,4 +820,159 @@ button {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
+}
+
+/* ---------- extras ---------- */
+.tab-plus {
+  width: 32px;
+  color: var(--fg-2);
+  font-size: 18px;
+  line-height: 1;
+  flex: none;
+}
+
+.tab-plus:hover {
+  background: var(--bg-3);
+  color: var(--accent);
+}
+
+.sel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.sel select,
+.theme-sel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  color: var(--fg);
+  font-size: 12px;
+  outline: none;
+  max-width: 150px;
+}
+
+.theme-sel {
+  height: 28px;
+}
+
+/* popup da bandeja (mesmo visual do Usage Tray) */
+.tp {
+  background: #18181b;
+  color: #fafafa;
+  border: 1px solid #3f3f46;
+  font: 13px/1.35 'Segoe UI', system-ui, sans-serif;
+  user-select: none;
+}
+
+.tp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 16px 4px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.tp-x {
+  color: #a1a1aa;
+  font-size: 13px;
+}
+
+.tp-x:hover {
+  color: #fafafa;
+}
+
+.tp-row {
+  padding: 8px 16px 0;
+}
+
+.tp-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.tp-track {
+  height: 8px;
+  background: #3f3f46;
+  margin-top: 5px;
+}
+
+.tp-fill {
+  height: 100%;
+}
+
+.tp-detail {
+  color: #a1a1aa;
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.tp-msg {
+  padding: 10px 16px 6px;
+  font-size: 12px;
+}
+
+.tp-muted {
+  color: #a1a1aa;
+}
+
+.tp-danger {
+  color: #f87171;
+}
+
+.tp-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px 16px;
+  font-size: 11px;
+}
+
+.tp-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.tp-link {
+  color: #a1a1aa;
+  text-decoration: underline;
+  font-size: 11px;
+}
+
+.tp-link:hover {
+  color: #fafafa;
+}
+
+.tp-open {
+  color: #d97757;
+}
+
+/* remote control */
+.rc-badge {
+  cursor: pointer;
+  line-height: 1.5;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ok) 25%, transparent);
+  color: var(--ok);
+  border: 1px solid color-mix(in srgb, var(--ok) 50%, transparent);
+}
+
+.rc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rc-btn.on {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 50%, transparent);
 }

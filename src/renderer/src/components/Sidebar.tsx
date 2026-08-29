@@ -15,10 +15,12 @@ export function sessionsFor(live: LiveSession[], path: string): LiveSession[] {
   })
 }
 
-export function statusFor(live: LiveSession[], path: string): 'busy' | 'idle' | 'none' {
+export function statusFor(live: LiveSession[], path: string): 'busy' | 'waiting' | 'idle' | 'none' {
   const s = sessionsFor(live, path)
   if (!s.length) return 'none'
-  return s.some((x) => x.status === 'busy') ? 'busy' : 'idle'
+  if (s.some((x) => x.status === 'busy')) return 'busy'
+  if (s.some((x) => x.status === 'waiting')) return 'waiting'
+  return 'idle'
 }
 
 interface MenuState {
@@ -110,7 +112,7 @@ export default function Sidebar(): React.JSX.Element {
           mostrar ocultos
         </label>
         <span className="legend">
-          <span className="dot busy" /> trabalhando <span className="dot idle" /> ocioso
+          <span className="dot busy" /> trabalhando <span className="dot waiting" /> esperando você <span className="dot idle" /> ocioso
         </span>
       </div>
 

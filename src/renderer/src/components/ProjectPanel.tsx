@@ -3,6 +3,7 @@ import { useStore } from '@/store'
 import { sessionsFor } from './Sidebar'
 import { fullDate, relTime, STACK_LABEL } from '@/lib/format'
 import type { ProjectOverride } from '@shared/types'
+import { EFFORT_OPTIONS, MODEL_OPTIONS } from '@shared/options'
 
 function Section({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }): React.JSX.Element {
   return (
@@ -53,6 +54,7 @@ export default function ProjectPanel(): React.JSX.Element | null {
     }
     void saveConfig({ perProject: { ...config.perProject, [p.name]: next } })
   }
+
 
   const skipEffective = ov.skipPermissions ?? config.skipPermissions
 
@@ -131,11 +133,20 @@ export default function ProjectPanel(): React.JSX.Element | null {
           {sessions.length === 0 && <div className="muted small">nenhuma sessão viva</div>}
           {sessions.map((s) => (
             <div key={s.pid} className="live-row">
-              <span className={`dot ${s.status === 'busy' ? 'busy' : 'idle'}`} />
+              <span className={`dot ${s.status === 'busy' ? 'busy' : s.status === 'waiting' ? 'waiting' : 'idle'}`} />
               <span className="mono">{s.name || s.sessionId.slice(0, 8)}</span>
               <span className="muted small">
                 {s.status} · {relTime(s.startedAt)} · {s.tabId ? 'wrapper' : 'externa'}
               </span>
+              {s.bridgeSessionId && (
+                <button
+                  className="rc-badge"
+                  title={`Remote Control conectado — abrir https://claude.ai/code/${s.bridgeSessionId}`}
+                  onClick={() => void window.api.app.openExternal(`https://claude.ai/code/${s.bridgeSessionId}`)}
+                >
+                  RC
+                </button>
+              )}
               {s.tabId ? (
                 <button className="btn ghost sm" onClick={() => setActiveTab(s.tabId!)}>
                   ir
@@ -211,9 +222,34 @@ export default function ProjectPanel(): React.JSX.Element | null {
               <option value="ask">perguntar (normal)</option>
             </select>
             <span>modelo</span>
-            <input placeholder={config.model || '(padrão)'} value={ov.model ?? ''} onChange={(e) => setOv({ model: e.target.value })} />
+            <select value={ov.model ?? ''} onChange={(e) => setOv({ model: e.target.value })}>
+              {MODEL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.value ? o.label : `padrão global (${MODEL_OPTIONS.find((m) => m.value === config.model)?.label ?? config.model ?? 'Claude'})`}
+                </option>
+              ))}
+            </select>
             <span>effort</span>
-            <input placeholder={config.effort || '(padrão)'} value={ov.effort ?? ''} onChange={(e) => setOv({ effort: e.target.value })} />
+            <select value={ov.effort ?? ''} onChange={(e) => setOv({ effort: e.target.value })}>
+              {EFFORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.value ? o.label : `padrão global (${config.effort || 'Claude'})`}
+                </option>
+              ))}
+            </select>
+            <span>remote control</span>
+            <select
+              value={ov.remoteControl === undefined ? 'default' : ov.remoteControl ? 'on' : 'off'}
+              onChange={(e) => {
+                const v = e.target.value
+                setOv({ remoteControl: v === 'default' ? undefined : v === 'on' })
+              }}
+              title="novas sessões deste projeto já abrem com --remote-control"
+            >
+              <option value="default">padrão global ({config.remoteControl ? 'ligado' : 'desligado'})</option>
+              <option value="on">abrir com --remote-control</option>
+              <option value="off">desligado</option>
+            </select>
             <span>args extras</span>
             <input placeholder="ex.: --add-dir ../outro" value={ov.extraArgs ?? ''} onChange={(e) => setOv({ extraArgs: e.target.value })} />
           </div>

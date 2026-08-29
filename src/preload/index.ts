@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type {
   AppConfig,
   HistorySession,
@@ -23,7 +23,8 @@ const api = {
   config: {
     get: (): Promise<AppConfig> => ipcRenderer.invoke('config:get'),
     set: (patch: Partial<AppConfig>): Promise<AppConfig> => ipcRenderer.invoke('config:set', patch),
-    path: (): Promise<string> => ipcRenderer.invoke('config:path')
+    path: (): Promise<string> => ipcRenderer.invoke('config:path'),
+    onUpdate: (cb: (cfg: AppConfig) => void): Unsub => on<[AppConfig]>('config:update', cb)
   },
   projects: {
     list: (): Promise<ProjectInfo[]> => ipcRenderer.invoke('projects:list'),
@@ -37,15 +38,26 @@ const api = {
     onLive: (cb: (sessions: LiveSession[]) => void): Unsub => on<[LiveSession[]]>('sessions:live', cb)
   },
   usage: {
-    get: (force = false): Promise<UsageInfo> => ipcRenderer.invoke('usage:get', force)
+    get: (force = false): Promise<UsageInfo> => ipcRenderer.invoke('usage:get', force),
+    onUpdate: (cb: (u: UsageInfo | null) => void): Unsub => on<[UsageInfo | null]>('usage:update', cb)
   },
   app: {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke('app:openExternal', url),
     copy: (text: string): Promise<void> => ipcRenderer.invoke('app:copy', text),
-    claudeBin: (): Promise<{ file: string; args: string[] }> => ipcRenderer.invoke('app:claudeBin')
+    claudeBin: (): Promise<{ file: string; args: string[] }> => ipcRenderer.invoke('app:claudeBin'),
+    clipboardHasImage: (): Promise<boolean> => ipcRenderer.invoke('app:clipboardHasImage'),
+    showMain: (): Promise<void> => ipcRenderer.invoke('app:showMain'),
+    hidePopup: (): Promise<void> => ipcRenderer.invoke('app:hidePopup'),
+    pathForFile: (f: File): string => webUtils.getPathForFile(f)
+  },
+  tray: {
+    onRender: (cb: (percent: number | null) => void): Unsub => on<[number | null]>('tray:render', cb),
+    rendered: (dataUrl: string): void => ipcRenderer.send('tray:rendered', dataUrl),
+    popupHeight: (h: number): void => ipcRenderer.send('popup:height', h)
   },
   tabs: {
-    list: (): Promise<TermTab[]> => ipcRenderer.invoke('tabs:list')
+    list: (): Promise<TermTab[]> => ipcRenderer.invoke('tabs:list'),
+    onUpdate: (cb: (tab: TermTab) => void): Unsub => on<[TermTab]>('tabs:update', cb)
   },
   pty: {
     spawnClaude: (opts: SpawnClaudeOpts): Promise<TermTab> => ipcRenderer.invoke('pty:spawnClaude', opts),

@@ -38,7 +38,8 @@ export function readLiveSessions(): LiveSession[] {
         name: j.name ?? '',
         startedAt: j.startedAt ?? 0,
         updatedAt: j.updatedAt ?? 0,
-        version: j.version ?? ''
+        version: j.version ?? '',
+        bridgeSessionId: typeof j.bridgeSessionId === 'string' ? j.bridgeSessionId : undefined
       })
     } catch {
       /* arquivo sendo escrito — ignora este ciclo */
@@ -70,7 +71,7 @@ export class LiveSessionWatcher {
 
   private tick(): void {
     const sessions = readLiveSessions()
-    const key = JSON.stringify(sessions.map((s) => [s.pid, s.status, s.updatedAt, s.name]))
+    const key = JSON.stringify(sessions.map((s) => [s.pid, s.status, s.updatedAt, s.name, s.bridgeSessionId]))
     if (key === this.last) return
     this.last = key
     for (const s of sessions) {

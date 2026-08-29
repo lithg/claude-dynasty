@@ -4,17 +4,18 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { WebglAddon } from '@xterm/addon-webgl'
 import type { TermTab } from '@shared/types'
-import { DARK_THEME, LIGHT_THEME, registerTerm, unregisterTerm } from '@/lib/terminals'
+import type { TermColors } from '@shared/themes'
+import { registerTerm, unregisterTerm } from '@/lib/terminals'
 
 interface Props {
   tab: TermTab
   visible: boolean
-  dark: boolean
+  colors: TermColors
   fontSize: number
   fontFamily: string
 }
 
-export default function TerminalView({ tab, visible, dark, fontSize, fontFamily }: Props): React.JSX.Element {
+export default function TerminalView({ tab, visible, colors, fontSize, fontFamily }: Props): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -30,7 +31,7 @@ export default function TerminalView({ tab, visible, dark, fontSize, fontFamily 
       lineHeight: 1.15,
       scrollback: 8000,
       allowProposedApi: true,
-      theme: dark ? DARK_THEME : LIGHT_THEME,
+      theme: colors,
       windowsPty: { backend: 'conpty', buildNumber: 26200 }
     })
     const fit = new FitAddon()
@@ -47,6 +48,19 @@ export default function TerminalView({ tab, visible, dark, fontSize, fontFamily 
 
     term.onData((d) => window.api.pty.write(tab.id, d))
     term.onResize(({ cols, rows }) => window.api.pty.resize(tab.id, cols, rows))
+
+    const pasteFromClipboard = (): void => {
+      void window.api.app.clipboardHasImage().then(async (hasImage) => {
+        // Imagem: manda Ctrl+V cru — o Claude Code lê a imagem da área de transferência sozinho.
+        if (hasImage && tab.kind === 'claude') {
+          window.api.pty.write(tab.id, '\x16')
+          return
+        }
+        const text = await navigator.clipboard.readText().catch(() => '')
+        if (text) term.paste(text)
+      })
+    }
+
     term.attachCustomKeyEventHandler((ev) => {
       if (ev.type !== 'keydown') return true
       const key = ev.key.toLowerCase()
@@ -60,14 +74,30 @@ export default function TerminalView({ tab, visible, dark, fontSize, fontFamily 
         term.clearSelection()
         return false
       }
-      if (ev.ctrlKey && ev.shiftKey && key === 'v') {
-        void navigator.clipboard.readText().then((t) => t && term.paste(t))
+      if (ev.ctrlKey && key === 'v') {
+        pasteFromClipboard()
         return false
       }
       // Atalhos globais do app — deixa o React tratar.
       if (ev.ctrlKey && (key === 't' || key === 'w' || key === 'tab' || key === ',' || key === 'b')) return false
       return true
     })
+
+    // Arrastar arquivos (imagens, etc.) → cola os caminhos no prompt.
+    const onDragOver = (e: DragEvent): void => e.preventDefault()
+    const onDrop = (e: DragEvent): void => {
+      e.preventDefault()
+      const files = Array.from(e.dataTransfer?.files ?? [])
+      if (!files.length) return
+      const paths = files.map((f) => {
+        const p = window.api.app.pathForFile(f)
+        return /\s/.test(p) ? `"${p}"` : p
+      })
+      term.paste(paths.join(' ') + ' ')
+      term.focus()
+    }
+    el.addEventListener('dragover', onDragOver)
+    el.addEventListener('drop', onDrop)
 
     termRef.current = term
     fitRef.current = fit
@@ -93,6 +123,8 @@ export default function TerminalView({ tab, visible, dark, fontSize, fontFamily 
     return () => {
       ro.disconnect()
       cancelAnimationFrame(raf)
+      el.removeEventListener('dragover', onDragOver)
+      el.removeEventListener('drop', onDrop)
       unregisterTerm(tab.id)
       term.dispose()
       termRef.current = null
@@ -104,8 +136,8 @@ export default function TerminalView({ tab, visible, dark, fontSize, fontFamily 
   useEffect(() => {
     const term = termRef.current
     if (!term) return
-    term.options.theme = dark ? DARK_THEME : LIGHT_THEME
-  }, [dark])
+    term.options.theme = colors
+  }, [colors])
 
   useEffect(() => {
     const term = termRef.current

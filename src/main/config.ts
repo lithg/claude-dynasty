@@ -20,7 +20,8 @@ const DEFAULTS: AppConfig = {
   effort: '',
   notifyOnIdle: true,
   autoOpenClaude: true,
-  closeToTray: true
+  closeToTray: true,
+  remoteControl: false
 }
 
 let cache: AppConfig | null = null

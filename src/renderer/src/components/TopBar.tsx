@@ -1,5 +1,6 @@
 import { useStore } from '@/store'
 import { humanizeReset, usageColor } from '@/lib/format'
+import { THEMES } from '@shared/themes'
 
 export default function TopBar(): React.JSX.Element {
   const usage = useStore((s) => s.usage)
@@ -16,12 +17,6 @@ export default function TopBar(): React.JSX.Element {
   const name = projects.find((p) => p.path === activeProject)?.name
   const busy = live.filter((s) => s.status === 'busy').length
 
-  const cycleTheme = (): void => {
-    const order = ['dark', 'light', 'system'] as const
-    const cur = config?.theme ?? 'dark'
-    const next = order[(order.indexOf(cur) + 1) % order.length]
-    void saveConfig({ theme: next })
-  }
 
   return (
     <header className="topbar">
@@ -58,9 +53,14 @@ export default function TopBar(): React.JSX.Element {
       </div>
 
       <div className="actions">
-        <button className="icon-btn" title={`Tema: ${config?.theme ?? 'dark'} (clique para alternar)`} onClick={cycleTheme}>
-          {config?.theme === 'light' ? '☀' : config?.theme === 'system' ? '◐' : '☾'}
-        </button>
+        <select className="theme-sel" title="Tema" value={config?.theme ?? 'dark'} onChange={(e) => void saveConfig({ theme: e.target.value })}>
+          <option value="system">sistema</option>
+          {THEMES.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
         <button className="icon-btn" title="Painel do projeto (Ctrl+B)" onClick={() => setPanelOpen(!panelOpen)}>
           {panelOpen ? '▸' : '◂'}
         </button>

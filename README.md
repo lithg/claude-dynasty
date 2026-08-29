@@ -20,6 +20,12 @@ Desenvolvimento com hot reload: `pnpm dev`.
   (resumo, URLs, comandos SSH para copiar), scripts do `package.json` (rodam num shell),
   opções por projeto e histórico de sessões com **retomar** (`claude --resume`).
 - **Topo**: consumo 5h / semanal da conta (mesma API do `/usage`), tema dark/light/system.
-- **Bandeja**: fechar a janela esconde na bandeja; o ícone mostra consumo e sessões vivas.
+- **Bandeja** (substitui o Usage Tray): ícone com anel + % do limite mais alto; clique = popup de
+  consumo, botão direito = abrir o wrapper / sair; inicia com o Windows escondido na bandeja.
+- **Abas**: "+" abre outra sessão no mesmo projeto; dropdowns de modelo/effort lembrados por projeto;
+  badge/botão **RC** mostra o Remote Control (clique = QR/desconectar, botão direito = abrir no claude.ai).
+- **Temas**: escuro, claro, sistema, Claude (laranja), Matrix, Dracula, Synthwave, Nord, Gruvbox,
+  Solarized, Monokai, âmbar retrô — mudam a UI e o terminal do Claude.
+- **Ctrl+V** cola imagem direto no Claude; arrastar arquivo cola o caminho.
 
 Config em `%APPDATA%\wrapper-claude\config.json`.

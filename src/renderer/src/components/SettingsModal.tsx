@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { AppConfig } from '@shared/types'
 import { useStore } from '@/store'
+import { EFFORT_OPTIONS, MODEL_OPTIONS } from '@shared/options'
+import { THEMES } from '@shared/themes'
 
 export default function SettingsModal(): React.JSX.Element | null {
   const open = useStore((s) => s.settingsOpen)
@@ -59,6 +61,12 @@ export default function SettingsModal(): React.JSX.Element | null {
             notificação do Windows quando uma sessão termina e a janela não está em foco
           </label>
 
+          <span>remote control</span>
+          <label className="check">
+            <input type="checkbox" checked={draft.remoteControl} onChange={(e) => set({ remoteControl: e.target.checked })} />
+            abrir toda sessão nova com <code>--remote-control</code> (controle pelo celular / claude.ai/code)
+          </label>
+
           <span>bandeja</span>
           <label className="check">
             <input type="checkbox" checked={draft.closeToTray} onChange={(e) => set({ closeToTray: e.target.checked })} />
@@ -66,10 +74,22 @@ export default function SettingsModal(): React.JSX.Element | null {
           </label>
 
           <span>modelo</span>
-          <input placeholder="(padrão do Claude — ex.: opus, sonnet)" value={draft.model} onChange={(e) => set({ model: e.target.value })} />
+          <select value={draft.model} onChange={(e) => set({ model: e.target.value })}>
+            {MODEL_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value ? o.label : 'padrão do Claude (settings.json)'}
+              </option>
+            ))}
+          </select>
 
           <span>effort</span>
-          <input placeholder="(padrão — ex.: high)" value={draft.effort} onChange={(e) => set({ effort: e.target.value })} />
+          <select value={draft.effort} onChange={(e) => set({ effort: e.target.value })}>
+            {EFFORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value ? o.label : 'padrão do Claude (settings.json)'}
+              </option>
+            ))}
+          </select>
 
           <span>args extras</span>
           <input placeholder="passados em toda sessão" value={draft.extraArgs} onChange={(e) => set({ extraArgs: e.target.value })} />
@@ -84,10 +104,13 @@ export default function SettingsModal(): React.JSX.Element | null {
           </div>
 
           <span>tema</span>
-          <select value={draft.theme} onChange={(e) => set({ theme: e.target.value as AppConfig['theme'] })}>
-            <option value="dark">escuro</option>
-            <option value="light">claro</option>
-            <option value="system">sistema</option>
+          <select value={draft.theme} onChange={(e) => set({ theme: e.target.value })}>
+            <option value="system">sistema (escuro/claro automático)</option>
+            {THEMES.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
           </select>
 
           <span>fonte</span>

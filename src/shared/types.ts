@@ -61,6 +61,8 @@ export interface LiveSession {
   startedAt: number
   updatedAt: number
   version: string
+  /** Remote Control: id da ponte com claude.ai (https://claude.ai/code/<id>) */
+  bridgeSessionId?: string
   /** id da aba do wrapper, se a sessão foi aberta por ele */
   tabId?: string
 }
@@ -93,6 +95,8 @@ export interface ProjectOverride {
   effort?: string
   extraArgs?: string
   label?: string
+  /** abrir novas sessões já com --remote-control */
+  remoteControl?: boolean
 }
 
 export interface AppConfig {
@@ -101,7 +105,8 @@ export interface AppConfig {
   hidden: string[]
   skipPermissions: boolean
   perProject: Record<string, ProjectOverride>
-  theme: 'dark' | 'light' | 'system'
+  /** id em THEMES ou 'system' */
+  theme: string
   fontSize: number
   fontFamily: string
   claudeBin: string
@@ -113,6 +118,8 @@ export interface AppConfig {
   autoOpenClaude: boolean
   /** fechar a janela esconde na bandeja em vez de sair (sessões continuam vivas) */
   closeToTray: boolean
+  /** padrão global: abrir sessões com --remote-control */
+  remoteControl: boolean
   windowBounds?: { x?: number; y?: number; width: number; height: number; maximized?: boolean }
 }
 

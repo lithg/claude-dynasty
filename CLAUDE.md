@@ -60,11 +60,32 @@ pnpm typecheck
 Atalho de uso diário: "Claude Wrapper" no Menu Iniciar e na área de trabalho (apontam para
 `node_modules\electron\dist\electron.exe "<pasta do projeto>"`, ícone em `resources/icon.ico`).
 `start.vbs` faz o mesmo. Instância única: abrir de novo só traz a janela para frente.
-Fechar a janela esconde na bandeja (config `closeToTray`); o ícone da bandeja mostra o consumo
-e sessões vivas, e tem "Sair".
+Fechar a janela esconde na bandeja (config `closeToTray`). O ícone da bandeja é o mesmo do
+antigo Usage Tray (anel + número do limite mais alto, desenhado em canvas no renderer e
+enviado ao main via `tray:rendered`); clique esquerdo abre o popup de consumo (janela
+`?popup=1`, componente `TrayPopup`), botão direito tem "Abrir Claude Wrapper" / "Sair",
+duplo clique abre a janela. `--hidden` inicia só na bandeja (atalho no Startup do Windows).
+O Usage Tray em Python foi **substituído** por isto (atalho de Startup dele removido em 2026-08-29).
+
+## Temas
+`src/shared/themes.ts` — cada tema define as variáveis da UI **e** as cores do xterm (janela do
+Claude); alguns trocam a fonte (Matrix, âmbar). Aplicados como CSS vars inline em `App.tsx`.
+Para adicionar um tema: novo objeto em `THEMES`.
+
+## Remote Control
+Toda sessão já nasce com Remote Control (o `bridgeSessionId` em `~/.claude/sessions/<pid>.json`
+é o id de `https://claude.ai/code/<id>`). O wrapper mostra o badge "RC" na aba/painel quando o
+campo existe; o botão "RC conectado" manda `/rc` para a sessão (diálogo com QR code /
+desconectar); botão direito abre a URL. Opção `--remote-control <nome>` por projeto/global
+apenas nomeia a sessão no claude.ai.
+
+## Ctrl+V com imagem
+`TerminalView` intercepta Ctrl+V: se a área de transferência tem imagem, envia `\x16` cru ao
+PTY (o Claude Code lê a imagem sozinho); se é texto, cola via xterm. Arrastar arquivos cola os
+caminhos.
 
 ## Atalhos no app
-Ctrl+T nova sessão Claude · Ctrl+W fecha aba · Ctrl+Tab alterna · Ctrl+B painel · Ctrl+, config ·
+Ctrl+T (ou o "+" ao lado das abas) nova sessão Claude · Ctrl+W fecha aba · Ctrl+Tab alterna · Ctrl+B painel · Ctrl+, config ·
 Ctrl+Shift+C/V copia/cola no terminal · botão do meio fecha aba.
 
 ## Regras
