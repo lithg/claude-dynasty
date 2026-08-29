@@ -335,6 +335,7 @@ button {
   background: var(--border);
   flex: none;
   display: inline-block;
+  position: relative;
 }
 
 .dot.idle {
@@ -343,8 +344,33 @@ button {
 
 .dot.busy {
   background: var(--ok);
-  box-shadow: 0 0 0 0 var(--ok);
-  animation: pulse 1.4s infinite;
+}
+
+/*
+ * A onda sai num pseudo-elemento animando só transform/opacity: são compostas na GPU.
+ * Animar box-shadow (como era antes) força repaint a cada quadro — três bolinhas dessas
+ * custavam ~6,5% da máquina inteira, mesmo com o app parado.
+ */
+.dot.busy::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--ok);
+  opacity: 0.6;
+  will-change: transform, opacity;
+  /*
+   * steps(3): a onda avança em 3 estágios por ciclo em vez de 60 quadros por segundo.
+   * Animação contínua obriga o compositor a redesenhar a janela inteira a cada quadro —
+   * medido nesta máquina: box-shadow 6,5% da CPU, transform suave 3,4%, em degraus 0,6%.
+   */
+  animation: pulse 1.4s steps(3, end) infinite;
+}
+
+/* janela escondida/minimizada não anima nada */
+:root.oculto .dot.busy::after {
+  animation: none;
+  opacity: 0;
 }
 
 .dot.dead {
@@ -357,13 +383,16 @@ button {
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent);
+    transform: scale(1);
+    opacity: 0.6;
   }
   70% {
-    box-shadow: 0 0 0 6px transparent;
+    transform: scale(2.6);
+    opacity: 0;
   }
   100% {
-    box-shadow: 0 0 0 0 transparent;
+    transform: scale(2.6);
+    opacity: 0;
   }
 }
 

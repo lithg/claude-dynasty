@@ -183,6 +183,30 @@ Ctrl+K paleta (sessões e projetos) · Ctrl+1..9 vai para a aba n · Ctrl+0 pula
 Shift+Enter e Shift+Espaço quebram linha (terminal e caixa) · Tab aceita a sugestão · Ctrl+Espaço pede sugestão ·
 Ctrl+Shift+C/V copia/cola no terminal · Ctrl+Shift+L limpa e redesenha o terminal · botão do meio fecha aba.
 
+## Performance (medido em 2026-08-29, i9-9900KS, 16 threads)
+Percentuais são da máquina inteira (100% = 16 threads).
+
+| Estado | CPU | RAM |
+|---|---|---|
+| janela aberta, sem aba, bolinha pulsando | **0,64%** | 514 MB |
+| janela aberta, 1 sessão do Claude ociosa | **0,68%** | 823 MB (+277 MB do `claude.exe`) |
+| escondido na bandeja | **0,02%** | 685 MB |
+| Warp, janela aberta, 1 aba parada | 0,03% | 500 MB (405 janela + 85 de serviços que ficam sempre) |
+
+O que dominava o consumo era a bolinha de "trabalhando": animava `box-shadow`, que **força repaint
+a cada quadro**. Três bolinhas custavam ~6,5% da máquina com o app parado. A onda passou para um
+pseudo-elemento animando só `transform`/`opacity` (composto na GPU) e com `steps(3, end)` —
+3 atualizações por ciclo em vez de 60/s: 6,5% → 3,4% → **0,6%**.
+
+Regras que valem para não regredir:
+- Nunca animar `box-shadow`, `width`, `top` etc. Só `transform` e `opacity`.
+- Animação contínua obriga o compositor a redesenhar a janela toda; se der, use `steps()`.
+- `backgroundThrottling: false` (preciso para o ícone da bandeja) faz o renderer continuar a todo
+  vapor escondido: por isso `:root.oculto` (via `visibilitychange`) mata animação e o polling de
+  git quando a janela não está visível.
+- O xterm em si é barato: 1 aba parada custou 0,16%. `LiveSessionWatcher` (1,5s) e o `usage`
+  (3 min) não aparecem na medição.
+
 ## Regras
 - Mensagens e UI em PT-BR.
 - Nada aqui toca servidor/produção dos outros projetos — é só um lançador.

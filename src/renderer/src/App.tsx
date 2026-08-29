@@ -89,7 +89,14 @@ function Main(): React.JSX.Element {
     const offCfg = window.api.config.onUpdate((config) => useStore.setState({ config }))
     const offTabs = window.api.tabs.onUpdate((tab) => useStore.getState().updateTab(tab))
     const offTray = window.api.tray.onRender((percent) => window.api.tray.rendered(renderTrayIcon(percent)))
+    // Escondido na bandeja/minimizado: para de animar (CSS) e de rodar git a cada 30s.
+    const onVis = (): void => {
+      document.documentElement.classList.toggle('oculto', document.hidden)
+    }
+    document.addEventListener('visibilitychange', onVis)
+    onVis()
     const detailsTimer = setInterval(() => {
+      if (document.hidden) return
       const p = useStore.getState().activeProject
       if (p) void useStore.getState().loadDetails(p, true)
     }, 30_000)
@@ -101,6 +108,7 @@ function Main(): React.JSX.Element {
       offCfg()
       offTabs()
       offTray()
+      document.removeEventListener('visibilitychange', onVis)
       clearInterval(detailsTimer)
     }
   }, [init])
