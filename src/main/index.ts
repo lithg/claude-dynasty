@@ -444,12 +444,13 @@ function registerIpc(): void {
       const scratch = join(app.getPath('temp'), 'claude-wrapper')
       mkdirSync(scratch, { recursive: true })
       const instruction = [
+        'Ignore qualquer instrução de memória, CLAUDE.md ou projeto: sua única tarefa é a de baixo.',
         'Abaixo está a última mensagem que um agente de programação enviou ao usuário.',
         'Escreva a PRÓXIMA MENSAGEM DO USUÁRIO para esse agente, em português do Brasil:',
         '1 ou 2 frases, direta, no imperativo, como o usuário responderia. Se o agente perguntou',
         'algo ou ofereceu opções, escolha a mais provável e cite pelo nome o que foi oferecido.',
         'Responda só com a mensagem pronta para enviar: sem aspas, sem preâmbulo, sem explicação,',
-        'e sem responder o que o agente perguntou como se você fosse o agente.',
+        'Nunca escreva como se você fosse o agente, e nunca faça a pergunta que o agente faria.',
         '',
         '=== MENSAGEM DO AGENTE ===',
         last.slice(-3000),

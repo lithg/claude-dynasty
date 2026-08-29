@@ -69,7 +69,19 @@ function Main(): React.JSX.Element {
     void init()
     const offData = window.api.pty.onData((id, data) => feedTerm(id, data))
     const offExit = window.api.pty.onExit((id, code) => useStore.getState().markExited(id, code))
-    const offLive = window.api.sessions.onLive((live) => useStore.setState({ live }))
+    const offLive = window.api.sessions.onLive((live) => {
+      const s = useStore.getState()
+      const before = s.live
+      useStore.setState({ live })
+      // sugestão automática: só para a aba que você está olhando e só quando o Claude acabou
+      const cfg = s.config
+      if (!cfg?.autoSuggest || !cfg.promptBox) return
+      const tab = s.tabs.find((t) => t.id === s.activeTabId)
+      if (!tab || tab.kind !== 'claude' || tab.suspended || tab.exited != null) return
+      const was = before.find((x) => x.tabId === tab.id)?.status
+      const now = live.find((x) => x.tabId === tab.id)?.status
+      if (was === 'busy' && now === 'idle') requestSuggest(tab.id, true)
+    })
     const offUsage = window.api.usage.onUpdate((usage) => {
       if (usage) useStore.setState({ usage })
     })
@@ -128,9 +140,6 @@ function Main(): React.JSX.Element {
         // Ctrl+P não dá: é o histórico de prompts do próprio Claude Code
         e.preventDefault()
         s.setPaletteOpen(!s.paletteOpen)
-      } else if (e.key === ' ') {
-        e.preventDefault()
-        requestSuggest(s.activeTabId)
       } else if (key === '0') {
         // pula para a próxima sessão que voltou a ficar ociosa (em qualquer projeto)
         e.preventDefault()

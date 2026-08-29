@@ -25,6 +25,7 @@ const DEFAULTS: AppConfig = {
   remoteControl: false,
   restoreTabs: true,
   promptBox: true,
+  autoSuggest: true,
   startWithWindows: true
 }
 

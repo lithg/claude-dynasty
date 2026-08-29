@@ -130,6 +130,8 @@ export interface AppConfig {
   restoreTabs: boolean
   /** caixa de prompt multi-linha embaixo do terminal */
   promptBox: boolean
+  /** sugerir sozinho a resposta quando o Claude termina (placeholder, aceito com Tab) */
+  autoSuggest: boolean
   /** iniciar com o Windows, escondido na bandeja */
   startWithWindows: boolean
   windowBounds?: { x?: number; y?: number; width: number; height: number; maximized?: boolean }

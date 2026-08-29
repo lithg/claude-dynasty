@@ -110,12 +110,15 @@ intercepta Shift+Enter/Alt+Enter e escreve **ESC+CR** (`\x1b\r`), que é o que o
 configura em iTerm/VS Code. Verificado num PTY: o prompt passa a mostrar duas linhas sem enviar.
 
 ## Sugestão de resposta (o "prompt pré-preenchido" do Warp)
-Botão ✨ na caixa de prompt / **Ctrl+Espaço**: `lastAssistantText()` lê a última fala do Claude no
+Vem **sozinha** quando a sessão da aba ativa passa de `busy` para `idle` (config `autoSuggest`;
+o botão ✨ pede de novo): `lastAssistantText()` lê a última fala do Claude no
 transcript e o main roda `claude -p "<instruções + mensagem>" --model haiku` com `cwd` numa pasta
 temporária (para não sujar o histórico do projeto). A sugestão chega como **placeholder apagado**
-(itálico, borda tracejada) — o `value` continua vazio; **Enter** ou **Tab** transformam em texto
-editável, **Esc** descarta e nada é enviado até você dar Ctrl+Enter. Só roda quando você pede —
-gasta cota. A busca no transcript tenta 512 KB de cauda e depois 4 MB: trechos
+(itálico, borda tracejada) — o `value` continua vazio; **Tab** transforma em texto editável,
+**Esc** descarta, Enter segue quebrando linha e nada é enviado até o Ctrl+Enter. Nunca atropela o
+que já está escrito. Gasta um Haiku por resposta do Claude, dá para desligar nas configurações.
+O `claude -p` carrega o `~/.claude/CLAUDE.md` global, então o prompt manda ignorar memória/projeto
+(sem isso a sugestão vira a pergunta "qual projeto vamos trabalhar hoje"). A busca no transcript tenta 512 KB de cauda e depois 4 MB: trechos
 com muita chamada de ferramenta empurram o último texto para longe do fim.
 
 ## Teclas que o Claude Code já usa
@@ -138,7 +141,7 @@ br.com.guilherme.wrapperclaude` (gravado via IPropertyStore no .lnk; sem isso o 
 Ctrl+T (ou o "+" ao lado das abas) nova sessão Claude · Ctrl+W fecha aba · Ctrl+Tab alterna · Ctrl+B painel · Ctrl+, config ·
 Ctrl+F busca no terminal · Ctrl+I foca a caixa de prompt · Ctrl+Enter envia o prompt ·
 Ctrl+K paleta (sessões e projetos) · Ctrl+1..9 vai para a aba n · Ctrl+0 pula para a próxima sessão ociosa ·
-Ctrl+Espaço sugere a resposta · Shift+Enter quebra linha no terminal ·
+Shift+Enter e Ctrl+Espaço quebram linha (terminal e caixa) · Tab aceita a sugestão ·
 Ctrl+Shift+C/V copia/cola no terminal · botão do meio fecha aba.
 
 ## Regras

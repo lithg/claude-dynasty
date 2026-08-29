@@ -26,19 +26,21 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
   const [value, setValue] = useState('')
   const [suggesting, setSuggesting] = useState(false)
   const [error, setError] = useState('')
-  // sugestão ainda não aceita: aparece só como placeholder apagado, Enter transforma em texto
+  // sugestão ainda não aceita: aparece só como placeholder apagado, Tab transforma em texto
   const [ghost, setGhost] = useState('')
   const [history, setHistory] = useState<string[]>(loadHistory)
   // -1 = escrevendo algo novo; 0+ = navegando no histórico (0 é o mais recente)
   const [cursor, setCursor] = useState(-1)
 
   /**
-   * Sugere a resposta provável à última fala do Claude (Ctrl+Espaço). Ela entra só como
-   * placeholder apagado — vira texto de verdade no Enter, some no Esc; nada é enviado.
-   * Sai um `claude -p` com Haiku por trás, então só roda quando você pede.
+   * Sugere a resposta provável à última fala do Claude. Vem sozinha quando a sessão volta a
+   * ficar ociosa (config `autoSuggest`) ou pelo botão ✨, e entra só como placeholder apagado:
+   * **Tab** vira texto de verdade, Esc descarta, nada é enviado. Por trás é um `claude -p`
+   * com Haiku, então nunca atropela o que você já escreveu.
    */
-  const suggest = (): void => {
+  const suggest = (auto = false): void => {
     if (suggesting || tab.kind !== 'claude' || !tab.sessionId) return
+    if (auto && (value || ghost)) return
     setSuggesting(true)
     setError('')
     void window.api.app
@@ -68,7 +70,7 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
   const suggestRef = useRef(suggest)
   suggestRef.current = suggest
   useEffect(() => {
-    registerSuggest(tab.id, () => suggestRef.current())
+    registerSuggest(tab.id, (auto) => suggestRef.current(auto))
     return () => unregisterSuggest(tab.id)
   }, [tab.id])
 
@@ -140,9 +142,9 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
       send()
       return
     }
-    // sugestão pendente: Enter (ou Tab) transforma o placeholder em texto editável
+    // sugestão pendente: Tab transforma o placeholder em texto editável
     if (ghost && !value) {
-      if ((e.key === 'Enter' && !e.shiftKey && !e.altKey) || e.key === 'Tab') {
+      if (e.key === 'Tab') {
         e.preventDefault()
         acceptGhost()
         return
@@ -160,7 +162,7 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
     }
     if (e.key === ' ' && e.ctrlKey) {
       e.preventDefault()
-      suggest()
+      insert('\n')
       return
     }
     // histórico: só quando o cursor está na ponta do texto (senão é navegação normal)
@@ -204,7 +206,7 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
           ghost && !value
             ? ghost
             : tab.kind === 'claude'
-              ? 'Prompt para o Claude — Enter quebra linha, Ctrl+Enter envia, Esc volta ao terminal'
+              ? 'Prompt para o Claude — Enter/Ctrl+Espaço quebram linha, Ctrl+Enter envia, Esc volta ao terminal'
               : 'Comando — Ctrl+Enter executa'
         }
         value={value}
@@ -219,7 +221,7 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
           {error
             ? error
             : ghost && !value
-              ? 'sugestão: Enter (ou Tab) escreve na caixa · Esc descarta · nada é enviado'
+              ? 'sugestão pronta: Tab escreve na caixa · Esc descarta · nada é enviado'
               : `${lines > 1 ? `${lines} linhas · ` : ''}Ctrl+Enter envia · ↑ histórico · Ctrl+V cola imagem · Ctrl+I foca aqui`}
         </span>
         <div className="row gap">
@@ -227,8 +229,8 @@ export default function PromptBox({ tab }: { tab: TermTab }): React.JSX.Element 
             <button
               className="btn ghost sm"
               disabled={suggesting}
-              title="Escreve aqui a resposta provável à última mensagem do Claude (Ctrl+Espaço) — roda um claude -p com Haiku, então consome um pouquinho da cota."
-              onClick={suggest}
+              title="Pede de novo a sugestão de resposta para a última mensagem do Claude — roda um claude -p com Haiku, então consome um pouquinho da cota."
+              onClick={() => suggest()}
             >
               {suggesting ? 'pensando…' : '✨ sugerir'}
             </button>
