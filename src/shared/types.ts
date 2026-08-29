@@ -89,6 +89,8 @@ export interface TermTab {
   createdAt: number
   pid: number
   exited?: number | null
+  /** restaurada da execução anterior: aparece na barra, mas só ganha processo ao ser retomada */
+  suspended?: boolean
 }
 
 export interface ProjectOverride {
@@ -124,6 +126,12 @@ export interface AppConfig {
   closeToTray: boolean
   /** padrão global: abrir sessões com --remote-control */
   remoteControl: boolean
+  /** reabrir as abas da última execução (suspensas; retomam com --resume ao clicar) */
+  restoreTabs: boolean
+  /** caixa de prompt multi-linha embaixo do terminal */
+  promptBox: boolean
+  /** iniciar com o Windows, escondido na bandeja */
+  startWithWindows: boolean
   windowBounds?: { x?: number; y?: number; width: number; height: number; maximized?: boolean }
 }
 

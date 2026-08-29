@@ -72,6 +72,27 @@ export default function SettingsModal(): React.JSX.Element | null {
             abrir toda sessão nova com <code>--remote-control</code> (controle pelo celular / claude.ai/code)
           </label>
 
+          <span>abas</span>
+          <label className="check">
+            <input type="checkbox" checked={draft.restoreTabs} onChange={(e) => set({ restoreTabs: e.target.checked })} />
+            reabrir as abas da última execução (suspensas, retomadas com <code>--resume</code>)
+          </label>
+          <span></span>
+          <label className="check">
+            <input type="checkbox" checked={draft.promptBox} onChange={(e) => set({ promptBox: e.target.checked })} />
+            caixa de prompt multi-linha embaixo do terminal (Ctrl+Enter envia)
+          </label>
+
+          <span>windows</span>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={draft.startWithWindows}
+              onChange={(e) => set({ startWithWindows: e.target.checked })}
+            />
+            iniciar junto com o Windows, escondido na bandeja
+          </label>
+
           <span>bandeja</span>
           <label className="check">
             <input type="checkbox" checked={draft.closeToTray} onChange={(e) => set({ closeToTray: e.target.checked })} />

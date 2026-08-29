@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@/store'
-import { feedTerm } from '@/lib/terminals'
+import { feedTerm, openSearch } from '@/lib/terminals'
 import { renderTrayIcon } from '@/lib/trayIcon'
 import { resolveTheme, type Theme } from '@shared/themes'
 import TopBar from './components/TopBar'
 import Sidebar from './components/Sidebar'
 import TabBar from './components/TabBar'
 import TerminalView from './components/TerminalView'
+import PromptBox from './components/PromptBox'
 import ProjectPanel from './components/ProjectPanel'
 import SettingsModal from './components/SettingsModal'
 import TrayPopup from './components/TrayPopup'
@@ -115,6 +116,12 @@ function Main(): React.JSX.Element {
       } else if (key === 'b') {
         e.preventDefault()
         s.setPanelOpen(!s.panelOpen)
+      } else if (key === 'f') {
+        e.preventDefault()
+        openSearch(s.activeTabId)
+      } else if (key === 'i') {
+        e.preventDefault()
+        s.focusPrompt()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -132,16 +139,34 @@ function Main(): React.JSX.Element {
       <main className="main">
         <TabBar />
         <div className="term-area">
-          {tabs.map((t) => (
-            <TerminalView
-              key={t.id}
-              tab={t}
-              visible={t.id === activeTabId}
-              colors={theme.term}
-              fontSize={config?.fontSize ?? 13}
-              fontFamily={fontFamily}
-            />
-          ))}
+          {tabs
+            .filter((t) => !t.suspended)
+            .map((t) => (
+              <TerminalView
+                key={t.id}
+                tab={t}
+                visible={t.id === activeTabId}
+                colors={theme.term}
+                fontSize={config?.fontSize ?? 13}
+                fontFamily={fontFamily}
+              />
+            ))}
+          {activeTab?.suspended && (
+            <div className="empty-state">
+              <div className="empty-title">{activeTab.title}</div>
+              <div className="muted">
+                Sessão da última vez que o wrapper esteve aberto — o processo não está mais de pé.
+              </div>
+              <div className="row gap">
+                <button className="btn" onClick={() => void useStore.getState().resumeTab(activeTab.id)}>
+                  Retomar sessão
+                </button>
+                <button className="btn ghost" onClick={() => void useStore.getState().closeTab(activeTab.id)}>
+                  Descartar aba
+                </button>
+              </div>
+            </div>
+          )}
           {!activeTab && (
             <div className="empty-state">
               {project ? (
@@ -166,6 +191,9 @@ function Main(): React.JSX.Element {
             </div>
           )}
         </div>
+        {config?.promptBox && activeTab && !activeTab.suspended && activeTab.exited == null && (
+          <PromptBox key={activeTab.id} tab={activeTab} />
+        )}
       </main>
       {panelOpen && <ProjectPanel />}
       <SettingsModal />

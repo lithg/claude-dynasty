@@ -63,6 +63,8 @@ const api = {
   pty: {
     spawnClaude: (opts: SpawnClaudeOpts): Promise<TermTab> => ipcRenderer.invoke('pty:spawnClaude', opts),
     spawnShell: (opts: SpawnShellOpts): Promise<TermTab> => ipcRenderer.invoke('pty:spawnShell', opts),
+    resume: (id: string, cols?: number, rows?: number): Promise<TermTab | null> =>
+      ipcRenderer.invoke('pty:resume', id, cols, rows),
     write: (id: string, data: string): void => ipcRenderer.send('pty:write', id, data),
     resize: (id: string, cols: number, rows: number): void => ipcRenderer.send('pty:resize', id, cols, rows),
     kill: (id: string): Promise<void> => ipcRenderer.invoke('pty:kill', id),

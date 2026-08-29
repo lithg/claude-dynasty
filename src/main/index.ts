@@ -12,14 +12,14 @@ import {
   Tray
 } from 'electron'
 import { join, basename } from 'node:path'
-import { mkdirSync, writeFileSync, readdirSync, statSync, unlinkSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, unlinkSync, existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import type { AppConfig, LiveSession, SpawnClaudeOpts, SpawnShellOpts, TermTab, UsageInfo } from '@shared/types'
 import { resolveTheme } from '@shared/themes'
 import { getConfig, setConfig, configPath } from './config'
 import { listProjects, projectDetails } from './projects'
-import { LiveSessionWatcher, readHistory, readLiveSessions } from './claudeSessions'
+import { LiveSessionWatcher, readHistory, readLiveSessions, transcriptExists } from './claudeSessions'
 import { PtyManager } from './pty'
 import { resolveClaudeBin } from './claudeBin'
 import { fetchUsage } from './usage'
@@ -258,6 +258,133 @@ async function refreshUsage(force = false): Promise<UsageInfo> {
   return u
 }
 
+/* ---------------- abas persistidas ---------------- */
+
+function tabsFile(): string {
+  return join(app.getPath('userData'), 'tabs.json')
+}
+
+let persistTimer: NodeJS.Timeout | null = null
+
+/**
+ * Guarda as abas abertas para a próxima execução. Elas voltam "suspensas" (sem processo) e
+ * ganham um `claude --resume <sessionId>` quando você clica em retomar.
+ */
+function persistTabs(now = false): void {
+  if (persistTimer) {
+    clearTimeout(persistTimer)
+    persistTimer = null
+  }
+  const write = (): void => {
+    const live = readLiveSessions()
+    const out = Array.from(tabs.values())
+      .filter((t) => t.exited == null)
+      .slice(-24)
+      .map((t) => ({
+        ...t,
+        pid: 0,
+        suspended: true,
+        // o nome da sessão viva (ex.: lapides-b9) deixa a aba restaurada reconhecível
+        title: (t.kind === 'claude' && t.sessionId && live.find((s) => s.sessionId === t.sessionId)?.name) || t.title
+      }))
+    try {
+      writeFileSync(tabsFile(), JSON.stringify(out, null, 2), 'utf-8')
+    } catch {
+      /* disco cheio / sem permissão: não vale derrubar o app */
+    }
+  }
+  if (now) write()
+  else persistTimer = setTimeout(write, 500)
+}
+
+function restoreTabs(): void {
+  if (!getConfig().restoreTabs) return
+  let raw: TermTab[]
+  try {
+    raw = JSON.parse(readFileSync(tabsFile(), 'utf-8'))
+  } catch {
+    return
+  }
+  if (!Array.isArray(raw)) return
+  for (const t of raw) {
+    if (!t?.id || !t.projectPath || !existsSync(t.projectPath)) continue
+    tabs.set(t.id, { ...t, pid: 0, exited: null, suspended: true })
+  }
+}
+
+/** Monta o comando do Claude para um projeto (compartilhado por abrir e retomar). */
+function claudeCommand(
+  projectPath: string,
+  opts: { resume?: string; continueLast?: boolean }
+): { file: string; args: string[]; sessionId?: string } {
+  const cfg = getConfig()
+  const name = basename(projectPath)
+  const ov = cfg.perProject[name] ?? {}
+  const bin = resolveClaudeBin()
+  const args = [...bin.args]
+
+  const skip = ov.skipPermissions ?? cfg.skipPermissions
+  if (skip) args.push('--dangerously-skip-permissions')
+  const model = ov.model || cfg.model
+  if (model) args.push('--model', model)
+  const effort = ov.effort || cfg.effort
+  if (effort) args.push('--effort', effort)
+
+  let sessionId: string | undefined
+  if (opts.resume) {
+    args.push('--resume', opts.resume)
+    sessionId = opts.resume
+  } else if (opts.continueLast) {
+    args.push('--continue')
+  } else {
+    sessionId = randomUUID()
+    args.push('--session-id', sessionId)
+  }
+  if (ov.remoteControl ?? cfg.remoteControl) args.push('--remote-control', name)
+  args.push(...splitArgs(cfg.extraArgs), ...splitArgs(ov.extraArgs ?? ''))
+  return { file: bin.file, args, sessionId }
+}
+
+function shellCommand(): { file: string; args: string[] } {
+  const file = getConfig().shell || 'powershell.exe'
+  return { file, args: /powershell|pwsh/i.test(file) ? ['-NoLogo'] : [] }
+}
+
+/* ---------------- iniciar com o Windows ---------------- */
+
+/**
+ * Registra/remove o app no boot (HKCU\...\Run) com `--hidden`, para nascer só na bandeja.
+ * O atalho antigo em Shell:Startup é removido para o app não subir duas vezes.
+ */
+function applyLoginItem(): void {
+  if (process.platform !== 'win32') return
+  const openAtLogin = getConfig().startWithWindows
+  // em dev o executável é o electron.exe e o app é passado como argumento
+  // (o Electron já coloca as aspas em quem tem espaço no caminho — não repetir aqui)
+  const args = process.defaultApp ? [app.getAppPath(), '--hidden'] : ['--hidden']
+  try {
+    // getLoginItemSettings() não enxerga a própria chave no Windows (volta sempre vazio),
+    // então não dá para comparar antes: a config manda e a chave é reescrita.
+    app.setLoginItemSettings({ openAtLogin, path: process.execPath, args, name: APP_NAME })
+  } catch {
+    /* ignore */
+  }
+  const legacy = join(
+    app.getPath('appData'),
+    'Microsoft',
+    'Windows',
+    'Start Menu',
+    'Programs',
+    'Startup',
+    `${APP_NAME}.lnk`
+  )
+  try {
+    if (existsSync(legacy) && shell.readShortcutLink(legacy).target === process.execPath) unlinkSync(legacy)
+  } catch {
+    /* atalho de outro app com o mesmo nome: deixa quieto */
+  }
+}
+
 /* ---------------- IPC ---------------- */
 
 function registerIpc(): void {
@@ -268,6 +395,7 @@ function registerIpc(): void {
       applyNativeTheme()
       win?.setBackgroundColor(themeBg())
     }
+    if ('startWithWindows' in patch) applyLoginItem()
     send('config:update', next)
     return next
   })
@@ -318,36 +446,11 @@ function registerIpc(): void {
   ipcMain.handle('tabs:list', () => Array.from(tabs.values()))
 
   ipcMain.handle('pty:spawnClaude', (_e, opts: SpawnClaudeOpts): TermTab => {
-    const cfg = getConfig()
-    const name = basename(opts.projectPath)
-    const ov = cfg.perProject[name] ?? {}
-    const bin = resolveClaudeBin()
-    const args = [...bin.args]
-
-    const skip = ov.skipPermissions ?? cfg.skipPermissions
-    if (skip) args.push('--dangerously-skip-permissions')
-    const model = ov.model || cfg.model
-    if (model) args.push('--model', model)
-    const effort = ov.effort || cfg.effort
-    if (effort) args.push('--effort', effort)
-
-    let sessionId: string | undefined
-    if (opts.resume) {
-      args.push('--resume', opts.resume)
-      sessionId = opts.resume
-    } else if (opts.continueLast) {
-      args.push('--continue')
-    } else {
-      sessionId = randomUUID()
-      args.push('--session-id', sessionId)
-    }
-    if (ov.remoteControl ?? cfg.remoteControl) args.push('--remote-control', name)
-    args.push(...splitArgs(cfg.extraArgs), ...splitArgs(ov.extraArgs ?? ''))
-
+    const c = claudeCommand(opts.projectPath, opts)
     const id = randomUUID()
     const pid = ptys.spawn(id, {
-      file: bin.file,
-      args,
+      file: c.file,
+      args: c.args,
       cwd: opts.projectPath,
       cols: opts.cols,
       rows: opts.rows
@@ -357,19 +460,18 @@ function registerIpc(): void {
       projectPath: opts.projectPath,
       kind: 'claude',
       title: opts.resume ? 'claude (resume)' : opts.continueLast ? 'claude (continue)' : 'claude',
-      sessionId,
+      sessionId: c.sessionId,
       createdAt: Date.now(),
       pid
     }
     tabs.set(id, tab)
+    persistTabs()
     return tab
   })
 
   ipcMain.handle('pty:spawnShell', (_e, opts: SpawnShellOpts): TermTab => {
-    const cfg = getConfig()
     const id = randomUUID()
-    const file = cfg.shell || 'powershell.exe'
-    const args = /powershell|pwsh/i.test(file) ? ['-NoLogo'] : []
+    const { file, args } = shellCommand()
     const pid = ptys.spawn(id, { file, args, cwd: opts.projectPath, cols: opts.cols, rows: opts.rows })
     const tab: TermTab = {
       id,
@@ -380,10 +482,38 @@ function registerIpc(): void {
       pid
     }
     tabs.set(id, tab)
+    persistTabs()
     if (opts.command) {
       const cmd = opts.command
       setTimeout(() => ptys.write(id, cmd + '\r'), 700)
     }
+    return tab
+  })
+
+  /**
+   * Dá processo a uma aba suspensa (restaurada da execução anterior) ou encerrada:
+   * `claude --resume <sessionId>` se o transcript ainda existe, senão sessão nova na mesma pasta.
+   */
+  ipcMain.handle('pty:resume', (_e, id: string, cols?: number, rows?: number): TermTab | null => {
+    const tab = tabs.get(id)
+    if (!tab) return null
+    if (ptys.has(id)) return tab
+
+    if (tab.kind === 'shell') {
+      const { file, args } = shellCommand()
+      tab.pid = ptys.spawn(id, { file, args, cwd: tab.projectPath, cols, rows })
+    } else {
+      const canResume = Boolean(tab.sessionId && transcriptExists(tab.projectPath, tab.sessionId))
+      const c = claudeCommand(tab.projectPath, canResume ? { resume: tab.sessionId } : {})
+      tab.pid = ptys.spawn(id, { file: c.file, args: c.args, cwd: tab.projectPath, cols, rows })
+      tab.sessionId = c.sessionId
+      tab.title = canResume ? tab.title : 'claude'
+    }
+    tab.suspended = false
+    tab.exited = null
+    tabs.set(id, tab)
+    send('tabs:update', tab)
+    persistTabs()
     return tab
   })
 
@@ -392,6 +522,7 @@ function registerIpc(): void {
   ipcMain.handle('pty:kill', (_e, id: string) => {
     ptys.kill(id)
     tabs.delete(id)
+    persistTabs()
   })
 }
 
@@ -409,7 +540,9 @@ app.setAppUserModelId('br.com.guilherme.wrapperclaude')
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
-  app.on('second-instance', showWindow)
+  app.on('second-instance', (_e, argv) => {
+    if (!argv.includes('--hidden')) showWindow()
+  })
 }
 
 /** Apaga PNGs colados com mais de 2 dias. */
@@ -430,11 +563,16 @@ app.whenReady().then(() => {
   ptys = new PtyManager((ch, ...a) => {
     if (ch === 'pty:exit') {
       const t = tabs.get(a[0] as string)
-      if (t) t.exited = a[1] as number
+      if (t) {
+        t.exited = a[1] as number
+        persistTabs()
+      }
     }
     send(ch, ...a)
   })
   registerIpc()
+  restoreTabs()
+  applyLoginItem()
   createWindow(!START_HIDDEN)
   createTray()
   win?.webContents.once('did-finish-load', () => void refreshUsage())
@@ -471,6 +609,7 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   quitting = true
+  persistTabs(true)
   watcher?.stop()
   ptys?.killAll()
 })

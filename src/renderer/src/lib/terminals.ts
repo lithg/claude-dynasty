@@ -34,6 +34,21 @@ export function getTerm(id: string): Terminal | undefined {
   return terms.get(id)
 }
 
+/** Abridores da barra de busca (Ctrl+F), para acionar de fora do xterm. */
+const searchOpeners = new Map<string, () => void>()
+
+export function registerSearch(id: string, open: () => void): void {
+  searchOpeners.set(id, open)
+}
+
+export function unregisterSearch(id: string): void {
+  searchOpeners.delete(id)
+}
+
+export function openSearch(id: string | null | undefined): void {
+  if (id) searchOpeners.get(id)?.()
+}
+
 export const DARK_THEME = {
   background: '#0f1115',
   foreground: '#d4d4d8',

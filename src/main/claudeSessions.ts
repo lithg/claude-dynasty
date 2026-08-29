@@ -45,6 +45,12 @@ function sessionModel(cwd: string, sessionId: string): string | undefined {
   return model
 }
 
+/** O transcript da sessão ainda existe? (senão, `--resume` falha) */
+export function transcriptExists(cwd: string, sessionId: string): boolean {
+  if (!cwd || !sessionId) return false
+  return existsSync(join(PROJECTS_DIR, slugForPath(cwd), `${sessionId}.jsonl`))
+}
+
 export function readLiveSessions(): LiveSession[] {
   if (!existsSync(SESSIONS_DIR)) return []
   const out: LiveSession[] = []

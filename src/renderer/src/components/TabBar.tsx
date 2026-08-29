@@ -10,6 +10,7 @@ export default function TabBar(): React.JSX.Element | null {
   const activeProject = useStore((s) => s.activeProject)
   const setActiveTab = useStore((s) => s.setActiveTab)
   const closeTab = useStore((s) => s.closeTab)
+  const resumeTab = useStore((s) => s.resumeTab)
   const openClaude = useStore((s) => s.openClaude)
   const openShell = useStore((s) => s.openShell)
   const saveConfig = useStore((s) => s.saveConfig)
@@ -40,12 +41,29 @@ export default function TabBar(): React.JSX.Element | null {
       <div className="tabs">
         {mine.map((t) => {
           const s = live.find((x) => x.tabId === t.id)
-          const st = t.exited != null ? 'dead' : s ? s.status : t.kind === 'claude' ? 'starting' : 'shell'
-          const dot = st === 'busy' ? 'busy' : st === 'idle' ? 'idle' : st === 'waiting' ? 'waiting' : st === 'dead' ? 'dead' : 'none'
+          const st = t.suspended
+            ? 'suspended'
+            : t.exited != null
+              ? 'dead'
+              : s
+                ? s.status
+                : t.kind === 'claude'
+                  ? 'starting'
+                  : 'shell'
+          const dot =
+            st === 'busy'
+              ? 'busy'
+              : st === 'idle'
+                ? 'idle'
+                : st === 'waiting'
+                  ? 'waiting'
+                  : st === 'dead' || st === 'suspended'
+                    ? 'dead'
+                    : 'none'
           return (
             <div
               key={t.id}
-              className={`tab ${t.id === activeTabId ? 'active' : ''} ${t.exited != null ? 'dead' : ''}`}
+              className={`tab ${t.id === activeTabId ? 'active' : ''} ${t.exited != null || t.suspended ? 'dead' : ''}`}
               onClick={() => setActiveTab(t.id)}
               onAuxClick={(e) => {
                 if (e.button === 1) void closeTab(t.id)
@@ -55,7 +73,7 @@ export default function TabBar(): React.JSX.Element | null {
               <span className={`dot ${dot}`} />
               <span className="tab-title">
                 {t.kind === 'claude' ? s?.name || t.title : t.title}
-                {t.exited != null && ' (encerrado)'}
+                {t.suspended ? ' (suspensa)' : t.exited != null ? ' (encerrado)' : ''}
               </span>
               {s?.model && <span className="model-chip">{modelLabel(s.model)}</span>}
               {s?.bridgeSessionId && (
@@ -136,6 +154,19 @@ export default function TabBar(): React.JSX.Element | null {
             }}
           >
             <span className={`dot ${rcActive ? 'idle' : 'none'}`} /> {rcActive ? 'RC conectado' : 'RC desconectado'}
+          </button>
+        )}
+        {active && (active.suspended || active.exited != null) && (
+          <button
+            className="btn sm"
+            title={
+              active.sessionId
+                ? `Dar processo a esta aba de novo (claude --resume ${active.sessionId})`
+                : 'Abrir uma sessão nova nesta aba'
+            }
+            onClick={() => void resumeTab(active.id)}
+          >
+            ↻ retomar
           </button>
         )}
         <button className="btn ghost" title="claude --continue" onClick={() => void openClaude(activeProject, { continueLast: true })}>

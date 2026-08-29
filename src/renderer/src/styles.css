@@ -522,8 +522,86 @@ button {
   inset: 6px 0 0 6px;
 }
 
+.term-host {
+  height: 100%;
+}
+
 .term .xterm {
   height: 100%;
+}
+
+/* ---------- busca no terminal (Ctrl+F) ---------- */
+.term-search {
+  position: absolute;
+  top: 4px;
+  right: 18px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 35%);
+}
+
+.term-search input {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  width: 210px;
+  outline: none;
+}
+
+.term-search input:focus {
+  border-color: var(--accent);
+}
+
+.term-search .hits {
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- caixa de prompt ---------- */
+.promptbox {
+  border-top: 1px solid var(--border);
+  background: var(--bg-2);
+  padding: 6px 8px 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.promptbox textarea {
+  width: 100%;
+  min-height: 46px;
+  resize: none;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.45;
+  outline: none;
+}
+
+.promptbox textarea:focus {
+  border-color: var(--accent);
+}
+
+.promptbox textarea::placeholder {
+  color: var(--muted);
+}
+
+.promptbox-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .empty-state {

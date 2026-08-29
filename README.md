@@ -15,7 +15,11 @@ Desenvolvimento com hot reload: `pnpm dev`.
 ## O que mostra
 - **Sidebar**: projetos (fixados no topo), bolinha verde pulsando = Claude trabalhando naquela pasta,
   verde fixa = sessão ociosa; inclui sessões abertas fora do wrapper.
-- **Abas**: várias sessões por projeto (Claude ou PowerShell); caixa de prompt multi-linha embaixo.
+- **Abas**: várias sessões por projeto (Claude ou PowerShell); as abas da última execução voltam
+  suspensas e retomam com `claude --resume` num clique.
+- **Caixa de prompt** multi-linha embaixo: Enter quebra linha, Ctrl+Enter envia, ↑ traz o histórico,
+  Ctrl+V cola imagem, Esc volta ao terminal e Ctrl+I volta para a caixa.
+- **Ctrl+F**: busca no terminal com contador de ocorrências.
 - **Painel direito**: git (branch, sujo, último commit), sessões vivas, infos do `CLAUDE.md`
   (resumo, URLs, comandos SSH para copiar), scripts do `package.json` (rodam num shell),
   opções por projeto e histórico de sessões com **retomar** (`claude --resume`).
@@ -27,5 +31,6 @@ Desenvolvimento com hot reload: `pnpm dev`.
 - **Temas**: escuro, claro, sistema, Claude (laranja), Matrix, Dracula, Synthwave, Nord, Gruvbox,
   Solarized, Monokai, âmbar retrô — mudam a UI e o terminal do Claude.
 - **Ctrl+V** cola imagem direto no Claude; arrastar arquivo cola o caminho.
+- **Inicia com o Windows** escondido na bandeja (checkbox nas configurações).
 
 Config em `%APPDATA%\wrapper-claude\config.json`.

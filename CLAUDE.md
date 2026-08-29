@@ -64,7 +64,11 @@ Fechar a janela esconde na bandeja (config `closeToTray`). O ícone da bandeja �
 antigo Usage Tray (anel + número do limite mais alto, desenhado em canvas no renderer e
 enviado ao main via `tray:rendered`); clique esquerdo abre o popup de consumo (janela
 `?popup=1`, componente `TrayPopup`), botão direito tem "Abrir Claude Wrapper" / "Sair",
-duplo clique abre a janela. `--hidden` inicia só na bandeja (atalho no Startup do Windows).
+duplo clique abre a janela. `--hidden` inicia só na bandeja. **Iniciar com o Windows** é a chave `HKCU\...\Run\Claude Wrapper`
+(escrita por `app.setLoginItemSettings` com `--hidden`), ligada/desligada no checkbox das
+configurações (`startWithWindows`). O antigo atalho em `Shell:Startup` é apagado no primeiro start
+para o app não subir duas vezes; `getLoginItemSettings()` não enxerga a própria chave no Windows,
+então a config é a fonte de verdade e a chave é reescrita a cada boot.
 O Usage Tray em Python foi **substituído** por isto (atalho de Startup dele removido em 2026-08-29).
 
 ## Temas
@@ -86,6 +90,24 @@ Ctrl+V, o main salva a imagem em `%TEMP%\claude-wrapper\colado-<ts>.png` e o cam
 (bracketed paste) — o Claude reconhece caminhos `.png/.jpg` e vira `[Image #N]`. PNGs com mais
 de 2 dias são apagados no start. Texto cola normal. Arrastar arquivos cola os caminhos.
 
+## Abas restauradas
+As abas abertas são gravadas em `%APPDATA%/wrapper-claude/tabs.json` (a cada spawn/kill/exit e no
+`before-quit`). Ao abrir, elas voltam **suspensas**: aparecem na barra com `(suspensa)`, sem
+processo. "Retomar" chama `pty:resume`, que faz `claude --resume <sessionId>` se o transcript ainda
+existir em `~/.claude/projects/<slug>/` (`transcriptExists`) ou abre sessão nova na mesma pasta.
+Nada é spawnado sozinho — importante porque o app sobe junto com o Windows. Config: `restoreTabs`.
+
+## Caixa de prompt
+`PromptBox` embaixo do terminal (config `promptBox`, dá para esconder pelo botão): Enter quebra
+linha, **Ctrl+Enter envia** como bracketed paste (`ESC[200~ … ESC[201~`) + `\r` 90 ms depois.
+↑/↓ navegam o histórico (localStorage `wrapper-prompt-history`, 100 itens) quando o cursor está na
+ponta do texto; Ctrl+V com imagem e arrastar arquivo colam caminhos como no terminal; Esc devolve
+o foco ao xterm; **Ctrl+I** traz o foco de volta para a caixa.
+
+## Busca no terminal
+Ctrl+F abre a barra (`@xterm/addon-search`): Enter próximo, Shift+Enter anterior, Esc fecha,
+contador `n/total`. `matchBackground`/`activeMatchBackground` só aceitam `#RRGGBB` (nada de rgba).
+
 ## Notificações
 Só para sessões abertas pelo wrapper (config `notifyExternal` inclui as externas). Os toasts
 mostram "Claude Wrapper" porque os atalhos têm `System.AppUserModel.ID =
@@ -94,6 +116,7 @@ br.com.guilherme.wrapperclaude` (gravado via IPropertyStore no .lnk; sem isso o 
 
 ## Atalhos no app
 Ctrl+T (ou o "+" ao lado das abas) nova sessão Claude · Ctrl+W fecha aba · Ctrl+Tab alterna · Ctrl+B painel · Ctrl+, config ·
+Ctrl+F busca no terminal · Ctrl+I foca a caixa de prompt · Ctrl+Enter envia o prompt ·
 Ctrl+Shift+C/V copia/cola no terminal · botão do meio fecha aba.
 
 ## Regras

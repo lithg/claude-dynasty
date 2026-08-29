@@ -22,7 +22,10 @@ const DEFAULTS: AppConfig = {
   notifyExternal: false,
   autoOpenClaude: true,
   closeToTray: true,
-  remoteControl: false
+  remoteControl: false,
+  restoreTabs: true,
+  promptBox: true,
+  startWithWindows: true
 }
 
 let cache: AppConfig | null = null

@@ -1,11 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { WebglAddon } from '@xterm/addon-webgl'
 import type { TermTab } from '@shared/types'
 import type { TermColors } from '@shared/themes'
-import { registerTerm, unregisterTerm } from '@/lib/terminals'
+import { registerSearch, registerTerm, unregisterSearch, unregisterTerm } from '@/lib/terminals'
 
 interface Props {
   tab: TermTab
@@ -19,6 +20,24 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
   const ref = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
+  const searchRef = useRef<SearchAddon | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [hits, setHits] = useState<{ index: number; count: number } | null>(null)
+
+  const searchOpts = useCallback(
+    () => ({
+      // matchBackground/activeMatchBackground precisam ser #RRGGBB (não aceitam rgba)
+      decorations: {
+        matchBackground: colors.brightBlack,
+        matchOverviewRuler: colors.brightBlack,
+        activeMatchBackground: colors.blue,
+        activeMatchColorOverviewRuler: colors.yellow
+      }
+    }),
+    [colors]
+  )
 
   useEffect(() => {
     const el = ref.current
@@ -35,7 +54,9 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
       windowsPty: { backend: 'conpty', buildNumber: 26200 }
     })
     const fit = new FitAddon()
+    const search = new SearchAddon()
     term.loadAddon(fit)
+    term.loadAddon(search)
     term.loadAddon(new WebLinksAddon((_e, uri) => void window.api.app.openExternal(uri)))
     term.open(el)
     try {
@@ -45,6 +66,7 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
     } catch {
       /* fica no renderer DOM/canvas */
     }
+    search.onDidChangeResults((r) => setHits(r ? { index: r.resultIndex + 1, count: r.resultCount } : null))
 
     term.onData((d) => window.api.pty.write(tab.id, d))
     term.onResize(({ cols, rows }) => window.api.pty.resize(tab.id, cols, rows))
@@ -83,7 +105,8 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
         return false
       }
       // Atalhos globais do app — deixa o React tratar.
-      if (ev.ctrlKey && (key === 't' || key === 'w' || key === 'tab' || key === ',' || key === 'b')) return false
+      if (ev.ctrlKey && (key === 't' || key === 'w' || key === 'tab' || key === ',' || key === 'b' || key === 'f' || key === 'i'))
+        return false
       return true
     })
 
@@ -105,7 +128,9 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
 
     termRef.current = term
     fitRef.current = fit
+    searchRef.current = search
     registerTerm(tab.id, term)
+    registerSearch(tab.id, () => setSearchOpen(true))
 
     let raf = 0
     const doFit = (): void => {
@@ -129,10 +154,12 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
       cancelAnimationFrame(raf)
       el.removeEventListener('dragover', onDragOver)
       el.removeEventListener('drop', onDrop)
+      unregisterSearch(tab.id)
       unregisterTerm(tab.id)
       term.dispose()
       termRef.current = null
       fitRef.current = null
+      searchRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab.id])
@@ -159,10 +186,70 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
       } catch {
         /* ignore */
       }
-      termRef.current?.focus()
+      if (!searchOpen) termRef.current?.focus()
     })
     return () => cancelAnimationFrame(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible])
 
-  return <div className="term" ref={ref} style={{ display: visible ? 'block' : 'none' }} />
+  useEffect(() => {
+    if (searchOpen) inputRef.current?.focus()
+  }, [searchOpen])
+
+  const find = (dir: 1 | -1): void => {
+    const s = searchRef.current
+    if (!s || !query) return
+    if (dir === 1) s.findNext(query, searchOpts())
+    else s.findPrevious(query, searchOpts())
+  }
+
+  const closeSearch = (): void => {
+    searchRef.current?.clearDecorations()
+    setSearchOpen(false)
+    setHits(null)
+    termRef.current?.focus()
+  }
+
+  return (
+    <div className="term" style={{ display: visible ? 'block' : 'none' }}>
+      {searchOpen && (
+        <div className="term-search">
+          <input
+            ref={inputRef}
+            placeholder="buscar no terminal…"
+            value={query}
+            onChange={(e) => {
+              const v = e.target.value
+              setQuery(v)
+              if (v) searchRef.current?.findNext(v, { ...searchOpts(), incremental: true })
+              else {
+                searchRef.current?.clearDecorations()
+                setHits(null)
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                find(e.shiftKey ? -1 : 1)
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                closeSearch()
+              }
+            }}
+          />
+          <span className="muted small hits">{query ? (hits?.count ? `${hits.index}/${hits.count}` : '0') : ''}</span>
+          <button className="icon-btn" title="anterior (Shift+Enter)" onClick={() => find(-1)}>
+            ↑
+          </button>
+          <button className="icon-btn" title="próximo (Enter)" onClick={() => find(1)}>
+            ↓
+          </button>
+          <button className="icon-btn" title="fechar (Esc)" onClick={closeSearch}>
+            ×
+          </button>
+        </div>
+      )}
+      <div className="term-host" ref={ref} />
+    </div>
+  )
 }
