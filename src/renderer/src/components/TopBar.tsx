@@ -40,7 +40,7 @@ export default function TopBar(): React.JSX.Element {
       <div className="usage">
         {usage?.error && (
           <span className="usage-err" title={usage.error}>
-            consumo indisponível
+            {usage.stale ? '⚠ desatualizado' : 'consumo indisponível'}
           </span>
         )}
         {usage?.limits.map((l) => (
@@ -52,7 +52,7 @@ export default function TopBar(): React.JSX.Element {
             <span className="meter-pct">{l.percent.toFixed(0)}%</span>
           </div>
         ))}
-        <button className="icon-btn" title="Atualizar consumo" onClick={() => void refreshUsage()}>
+        <button className="icon-btn" title="Atualizar consumo" onClick={() => void refreshUsage(true)}>
           ⟳
         </button>
       </div>

@@ -37,7 +37,7 @@ const api = {
     onLive: (cb: (sessions: LiveSession[]) => void): Unsub => on<[LiveSession[]]>('sessions:live', cb)
   },
   usage: {
-    get: (): Promise<UsageInfo> => ipcRenderer.invoke('usage:get')
+    get: (force = false): Promise<UsageInfo> => ipcRenderer.invoke('usage:get', force)
   },
   app: {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke('app:openExternal', url),

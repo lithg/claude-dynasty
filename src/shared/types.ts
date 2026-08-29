@@ -129,6 +129,8 @@ export interface UsageInfo {
   credits: { percent: number; used?: number; limit?: number; currency: string } | null
   fetchedAt: number
   error?: string
+  /** limits vêm da última consulta boa; a atual falhou (ver error) */
+  stale?: boolean
 }
 
 export interface SpawnClaudeOpts {

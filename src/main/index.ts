@@ -123,7 +123,7 @@ function registerIpc(): void {
   ipcMain.handle('sessions:live', () => readLiveSessions())
   ipcMain.handle('sessions:history', (_e, path: string) => readHistory(path))
 
-  ipcMain.handle('usage:get', () => fetchUsage())
+  ipcMain.handle('usage:get', (_e, force?: boolean) => fetchUsage(Boolean(force)))
 
   ipcMain.handle('app:openExternal', (_e, url: string) => shell.openExternal(url))
   ipcMain.handle('app:copy', (_e, text: string) => clipboard.writeText(text))

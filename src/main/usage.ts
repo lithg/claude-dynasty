@@ -75,7 +75,30 @@ function limitsFrom(payload: any): UsageLimit[] {
   return limits
 }
 
-export async function fetchUsage(): Promise<UsageInfo> {
+let last: UsageInfo | null = null
+let inflight: Promise<UsageInfo> | null = null
+const CACHE_MS = 45_000
+
+/**
+ * Uma única consulta real por janela de 45s, compartilhada entre renderer e bandeja.
+ * Em erro (ex.: 429), devolve o último valor bom marcado como `stale` + a mensagem.
+ */
+export function fetchUsage(force = false): Promise<UsageInfo> {
+  if (inflight) return inflight
+  if (!force && last && !last.error && Date.now() - last.fetchedAt < CACHE_MS) return Promise.resolve(last)
+  inflight = doFetch()
+    .then((u) => {
+      if (u.error && last?.limits.length) u = { ...last, error: u.error, stale: true }
+      last = u
+      return u
+    })
+    .finally(() => {
+      inflight = null
+    })
+  return inflight
+}
+
+async function doFetch(): Promise<UsageInfo> {
   try {
     const token = accessToken()
     const res = await fetch(USAGE_URL, {
@@ -90,6 +113,7 @@ export async function fetchUsage(): Promise<UsageInfo> {
     if (res.status === 401 || res.status === 403) {
       throw new Error('API recusou o token — abra o Claude para renovar.')
     }
+    if (res.status === 429) throw new Error('API limitou as consultas (429) — tenta de novo em instantes.')
     if (!res.ok) throw new Error(`HTTP ${res.status} ao consultar consumo.`)
     const payload: any = await res.json()
     const extra = payload.extra_usage

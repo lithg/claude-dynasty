@@ -28,7 +28,7 @@ interface State {
   loadProjects: () => Promise<void>
   loadDetails: (path: string, force?: boolean) => Promise<void>
   loadHistory: (path: string) => Promise<void>
-  refreshUsage: () => Promise<void>
+  refreshUsage: (force?: boolean) => Promise<void>
   saveConfig: (patch: Partial<AppConfig>) => Promise<void>
 
   selectProject: (path: string) => Promise<void>
@@ -99,14 +99,14 @@ export const useStore = create<State>((set, get) => ({
     set((s) => ({ history: { ...s.history, [path]: h } }))
   },
 
-  refreshUsage: async () => {
-    const usage = await window.api.usage.get()
+  refreshUsage: async (force = false) => {
+    const usage = await window.api.usage.get(force)
     set({ usage })
-    // Falha transitória (token sendo renovado pelo Claude, rede): tenta de novo logo.
+    // Falha transitória (429, token sendo renovado, rede): tenta de novo em 30s.
     if (usage.error) {
       setTimeout(() => {
         if (get().usage?.error) void get().refreshUsage()
-      }, 10_000)
+      }, 30_000)
     }
   },
 
