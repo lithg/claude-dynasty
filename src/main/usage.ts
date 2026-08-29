@@ -77,18 +77,36 @@ function limitsFrom(payload: any): UsageLimit[] {
 
 let last: UsageInfo | null = null
 let inflight: Promise<UsageInfo> | null = null
-const CACHE_MS = 45_000
+let lastAttempt = 0
+let backoffUntil = 0
+/** cache normal; a API de consumo limita consultas frequentes (429) */
+const CACHE_MS = 150_000
+/** mesmo com "força" (botão Atualizar), no máximo 1 consulta por minuto */
+const MIN_GAP_MS = 60_000
+/** depois de um 429, espera antes de tentar de novo */
+const BACKOFF_MS = 5 * 60_000
 
 /**
- * Uma única consulta real por janela de 45s, compartilhada entre renderer e bandeja.
+ * Uma única consulta real, compartilhada entre renderer e bandeja.
  * Em erro (ex.: 429), devolve o último valor bom marcado como `stale` + a mensagem.
  */
 export function fetchUsage(force = false): Promise<UsageInfo> {
   if (inflight) return inflight
-  if (!force && last && !last.error && Date.now() - last.fetchedAt < CACHE_MS) return Promise.resolve(last)
+  const now = Date.now()
+  const fresh = last && !last.error && now - last.fetchedAt < CACHE_MS
+  if (!force && fresh) return Promise.resolve(last!)
+  if (now < backoffUntil || now - lastAttempt < MIN_GAP_MS) {
+    if (last) return Promise.resolve(last)
+  }
+  lastAttempt = now
   inflight = doFetch()
     .then((u) => {
-      if (u.error && last?.limits.length) u = { ...last, error: u.error, stale: true }
+      if (u.error) {
+        if (/429/.test(u.error)) backoffUntil = Date.now() + BACKOFF_MS
+        if (last?.limits.length) u = { ...last, error: u.error, stale: true, fetchedAt: last.fetchedAt }
+      } else {
+        backoffUntil = 0
+      }
       last = u
       return u
     })
@@ -113,7 +131,7 @@ async function doFetch(): Promise<UsageInfo> {
     if (res.status === 401 || res.status === 403) {
       throw new Error('API recusou o token — abra o Claude para renovar.')
     }
-    if (res.status === 429) throw new Error('API limitou as consultas (429) — tenta de novo em instantes.')
+    if (res.status === 429) throw new Error('API limitou as consultas (429) — nova tentativa em 5 min.')
     if (!res.ok) throw new Error(`HTTP ${res.status} ao consultar consumo.`)
     const payload: any = await res.json()
     const extra = payload.extra_usage

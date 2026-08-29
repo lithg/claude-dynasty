@@ -105,11 +105,11 @@ export const useStore = create<State>((set, get) => ({
   refreshUsage: async (force = false) => {
     const usage = await window.api.usage.get(force)
     set({ usage })
-    // Falha transitória (429, token sendo renovado, rede): tenta de novo em 30s.
-    if (usage.error) {
+    // O main já tem cache/backoff; aqui só repete em falha sem dado nenhum (ex.: token renovando).
+    if (usage.error && !usage.limits.length) {
       setTimeout(() => {
-        if (get().usage?.error) void get().refreshUsage()
-      }, 30_000)
+        if (get().usage?.error && !get().usage?.limits.length) void get().refreshUsage()
+      }, 90_000)
     }
   },
 

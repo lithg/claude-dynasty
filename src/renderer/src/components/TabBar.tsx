@@ -1,5 +1,5 @@
 import { useStore } from '@/store'
-import { EFFORT_OPTIONS, MODEL_OPTIONS } from '@shared/options'
+import { EFFORT_OPTIONS, MODEL_OPTIONS, modelLabel } from '@shared/options'
 
 export default function TabBar(): React.JSX.Element | null {
   const tabs = useStore((s) => s.tabs)
@@ -50,13 +50,14 @@ export default function TabBar(): React.JSX.Element | null {
               onAuxClick={(e) => {
                 if (e.button === 1) void closeTab(t.id)
               }}
-              title={s?.name ? `${s.name} · ${s.sessionId}` : t.kind}
+              title={s?.name ? `${s.name} · ${s.sessionId}${s.model ? `\nmodelo em uso: ${modelLabel(s.model)} (${s.model})` : ''}` : t.kind}
             >
               <span className={`dot ${dot}`} />
               <span className="tab-title">
                 {t.kind === 'claude' ? s?.name || t.title : t.title}
                 {t.exited != null && ' (encerrado)'}
               </span>
+              {s?.model && <span className="model-chip">{modelLabel(s.model)}</span>}
               {s?.bridgeSessionId && (
                 <span className="rc-badge" title={`Remote Control conectado · https://claude.ai/code/${s.bridgeSessionId}`}>
                   RC
@@ -88,7 +89,19 @@ export default function TabBar(): React.JSX.Element | null {
         </button>
       </div>
       <div className="tab-actions">
-        <label className="sel" title="Modelo das próximas sessões deste projeto (lembrado por projeto)">
+        {active && active.kind === 'claude' && active.exited == null && ov.model && activeLive?.model && !activeLive.model.toLowerCase().includes(ov.model.replace(/claude-|\[1m\]|-5/g, '').toLowerCase()) && (
+          <button
+            className="btn ghost sm apply-model"
+            title={`A aba atual está em ${modelLabel(activeLive.model)}. Clique para mandar /model ${ov.model} para ela.\nAtenção: o Claude Code também salva isso como padrão global no settings.json.`}
+            onClick={() => {
+              window.api.pty.write(active.id, `/model ${ov.model}`)
+              setTimeout(() => window.api.pty.write(active.id, '\r'), 150)
+            }}
+          >
+            aplicar à aba (/model)
+          </button>
+        )}
+        <label className="sel" title="Modelo das PRÓXIMAS sessões deste projeto (lembrado por projeto). A aba aberta mostra o modelo em uso no chip.">
           <span>modelo</span>
           <select value={ov.model ?? ''} onChange={(e) => setOv({ model: e.target.value })}>
             {MODEL_OPTIONS.map((o) => (

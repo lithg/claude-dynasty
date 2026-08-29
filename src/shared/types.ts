@@ -63,6 +63,8 @@ export interface LiveSession {
   version: string
   /** Remote Control: id da ponte com claude.ai (https://claude.ai/code/<id>) */
   bridgeSessionId?: string
+  /** modelo da última resposta no transcript (ex.: claude-opus-5) */
+  model?: string
   /** id da aba do wrapper, se a sessão foi aberta por ele */
   tabId?: string
 }

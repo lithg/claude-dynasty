@@ -410,7 +410,8 @@ app.whenReady().then(() => {
   createWindow(!START_HIDDEN)
   createTray()
   win?.webContents.once('did-finish-load', () => void refreshUsage())
-  setInterval(() => void refreshUsage(), 60_000)
+  // Não precisa ser tempo real: a API de consumo devolve 429 se consultada com frequência.
+  setInterval(() => void refreshUsage(), 3 * 60_000)
 
   watcher = new LiveSessionWatcher(
     (sessions) => {

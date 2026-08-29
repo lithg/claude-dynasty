@@ -63,7 +63,11 @@ export default function TrayPopup(): React.JSX.Element {
               : 'créditos extras habilitados',
             false
           )}
-        {usage?.stale && <div className="tp-msg tp-danger">{usage.error}</div>}
+        {usage?.stale && (
+          <div className="tp-msg tp-muted" title={usage.error}>
+            valores da última consulta boa · {usage.error}
+          </div>
+        )}
       </div>
       <div className="tp-foot">
         <span className="tp-muted">

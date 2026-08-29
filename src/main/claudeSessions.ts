@@ -22,6 +22,29 @@ function pidAlive(pid: number): boolean {
   }
 }
 
+const modelCache = new Map<string, { mtime: number; model?: string }>()
+
+/** Modelo usado pela sessão: última linha de assistant no transcript (`"model":"claude-…"`). */
+function sessionModel(cwd: string, sessionId: string): string | undefined {
+  if (!cwd || !sessionId) return undefined
+  const file = join(PROJECTS_DIR, slugForPath(cwd), `${sessionId}.jsonl`)
+  let st
+  try {
+    st = statSync(file)
+  } catch {
+    return undefined
+  }
+  const cached = modelCache.get(file)
+  if (cached && cached.mtime === st.mtimeMs) return cached.model
+  const tail = readChunk(file, Math.max(0, st.size - 48 * 1024), Math.min(st.size, 48 * 1024))
+  let model: string | undefined
+  const re = /"model":"(claude-[^"]+)"/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(tail))) model = m[1]
+  modelCache.set(file, { mtime: st.mtimeMs, model })
+  return model
+}
+
 export function readLiveSessions(): LiveSession[] {
   if (!existsSync(SESSIONS_DIR)) return []
   const out: LiveSession[] = []
@@ -31,6 +54,7 @@ export function readLiveSessions(): LiveSession[] {
       const j = JSON.parse(readFileSync(join(SESSIONS_DIR, f), 'utf-8'))
       if (typeof j.pid !== 'number' || !pidAlive(j.pid)) continue
       out.push({
+        model: sessionModel(j.cwd ?? '', j.sessionId ?? ''),
         pid: j.pid,
         sessionId: j.sessionId ?? '',
         cwd: j.cwd ?? '',
@@ -71,7 +95,7 @@ export class LiveSessionWatcher {
 
   private tick(): void {
     const sessions = readLiveSessions()
-    const key = JSON.stringify(sessions.map((s) => [s.pid, s.status, s.updatedAt, s.name, s.bridgeSessionId]))
+    const key = JSON.stringify(sessions.map((s) => [s.pid, s.status, s.updatedAt, s.name, s.bridgeSessionId, s.model]))
     if (key === this.last) return
     this.last = key
     for (const s of sessions) {

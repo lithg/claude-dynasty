@@ -3,7 +3,7 @@ import { useStore } from '@/store'
 import { sessionsFor } from './Sidebar'
 import { fullDate, relTime, STACK_LABEL } from '@/lib/format'
 import type { ProjectOverride } from '@shared/types'
-import { EFFORT_OPTIONS, MODEL_OPTIONS } from '@shared/options'
+import { EFFORT_OPTIONS, MODEL_OPTIONS, modelLabel } from '@shared/options'
 
 function Section({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }): React.JSX.Element {
   return (
@@ -138,6 +138,11 @@ export default function ProjectPanel(): React.JSX.Element | null {
               <span className="muted small">
                 {s.status} · {relTime(s.startedAt)} · {s.tabId ? 'wrapper' : 'externa'}
               </span>
+              {s.model && (
+                <span className="model-chip" title={s.model}>
+                  {modelLabel(s.model)}
+                </span>
+              )}
               {s.bridgeSessionId && (
                 <button
                   className="rc-badge"
