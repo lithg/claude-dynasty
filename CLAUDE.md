@@ -71,6 +71,14 @@ para o app não subir duas vezes; `getLoginItemSettings()` não enxerga a própr
 então a config é a fonte de verdade e a chave é reescrita a cada boot.
 O Usage Tray em Python foi **substituído** por isto (atalho de Startup dele removido em 2026-08-29).
 
+## Zoom do terminal
+**Ctrl + roda do mouse** sobre o terminal muda só a fonte daquele terminal (8–32 px) e grava em
+`perProject[nome].fontSize` — o resto da UI não mexe e o tamanho volta igual na próxima vez que
+abrir o projeto. O listener fica em **captura** no `.term-host`, senão o xterm consome a roda para
+rolar o buffer. A gravação é adiada 400 ms para não escrever o `config.json` a cada clique da roda.
+Sem override, vale o `fontSize` global das configurações. É por projeto, não por aba: duas abas do
+mesmo projeto ficam do mesmo tamanho.
+
 ## Temas
 `src/shared/themes.ts` — cada tema define as variáveis da UI **e** as cores do xterm (janela do
 Claude); alguns trocam a fonte (Matrix, âmbar). Aplicados como CSS vars inline em `App.tsx`.

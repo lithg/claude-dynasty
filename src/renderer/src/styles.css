@@ -565,7 +565,22 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- paleta (Ctrl+P) ---------- */
+/* etiqueta do zoom (Ctrl+roda no terminal) */
+.term-zoom {
+  position: absolute;
+  right: 18px;
+  bottom: 10px;
+  z-index: 5;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* ---------- paleta (Ctrl+K) ---------- */
 .palette {
   width: min(620px, 92vw);
   align-self: flex-start;

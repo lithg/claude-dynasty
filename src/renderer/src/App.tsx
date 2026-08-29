@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useStore } from '@/store'
+import { projectName, useStore } from '@/store'
 import { feedTerm, openSearch } from '@/lib/terminals'
 import { requestSuggest } from '@/lib/promptBus'
 import { renderTrayIcon } from '@/lib/trayIcon'
@@ -185,8 +185,9 @@ function Main(): React.JSX.Element {
                 tab={t}
                 visible={t.id === activeTabId}
                 colors={theme.term}
-                fontSize={config?.fontSize ?? 13}
+                fontSize={config?.perProject[projectName(t.projectPath)]?.fontSize ?? config?.fontSize ?? 13}
                 fontFamily={fontFamily}
+                onZoom={(delta) => useStore.getState().zoomProject(t.projectPath, delta)}
               />
             ))}
           {activeTab?.suspended && (

@@ -95,6 +95,8 @@ export interface TermTab {
 
 export interface ProjectOverride {
   skipPermissions?: boolean
+  /** tamanho da fonte do terminal deste projeto (Ctrl+roda do mouse) */
+  fontSize?: number
   model?: string
   effort?: string
   extraArgs?: string

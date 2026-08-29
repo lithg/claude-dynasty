@@ -51,9 +51,18 @@ interface State {
   setPanelOpen: (v: boolean) => void
   setShowHidden: (v: boolean) => void
   setFilter: (v: string) => void
+  /** Ctrl+roda no terminal: muda a fonte só deste projeto e guarda no config */
+  zoomProject: (projectPath: string, delta: number) => void
   togglePin: (name: string) => Promise<void>
   toggleHidden: (name: string) => Promise<void>
 }
+
+/** Nome da pasta = chave de `perProject`. */
+export function projectName(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? path
+}
+
+let zoomTimer: ReturnType<typeof setTimeout> | null = null
 
 export const useStore = create<State>((set, get) => ({
   config: null,
@@ -202,6 +211,23 @@ export const useStore = create<State>((set, get) => ({
   setPanelOpen: (v) => set({ panelOpen: v }),
   setShowHidden: (v) => set({ showHidden: v }),
   setFilter: (v) => set({ filter: v }),
+
+  zoomProject: (projectPath, delta) => {
+    const cfg = get().config
+    if (!cfg) return
+    const name = projectName(projectPath)
+    const current = cfg.perProject[name]?.fontSize ?? cfg.fontSize
+    const next = Math.min(32, Math.max(8, current + delta))
+    if (next === current) return
+    const perProject = { ...cfg.perProject, [name]: { ...(cfg.perProject[name] ?? {}), fontSize: next } }
+    set({ config: { ...cfg, perProject } })
+    // grava depois da rajada de scroll, senão escreve o config.json a cada clique da roda
+    if (zoomTimer) clearTimeout(zoomTimer)
+    zoomTimer = setTimeout(() => {
+      zoomTimer = null
+      void window.api.config.set({ perProject: get().config!.perProject })
+    }, 400)
+  },
 
   togglePin: async (name) => {
     const cfg = get().config!

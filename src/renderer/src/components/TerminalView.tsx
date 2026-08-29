@@ -14,9 +14,11 @@ interface Props {
   colors: TermColors
   fontSize: number
   fontFamily: string
+  /** Ctrl+roda do mouse: +1 / -1 no tamanho da fonte deste projeto */
+  onZoom: (delta: number) => void
 }
 
-export default function TerminalView({ tab, visible, colors, fontSize, fontFamily }: Props): React.JSX.Element {
+export default function TerminalView({ tab, visible, colors, fontSize, fontFamily, onZoom }: Props): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -25,6 +27,10 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<{ index: number; count: number } | null>(null)
+  // mostra o tamanho enquanto você dá Ctrl+roda, e some sozinho
+  const [zoomBadge, setZoomBadge] = useState(false)
+  const onZoomRef = useRef(onZoom)
+  onZoomRef.current = onZoom
 
   const searchOpts = useCallback(
     () => ({
@@ -131,6 +137,20 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
       return true
     })
 
+    // Ctrl + roda do mouse = zoom só deste terminal (o xterm usaria a roda para rolar,
+    // por isso o listener é em captura e barra o evento antes dele).
+    let badgeTimer: ReturnType<typeof setTimeout> | null = null
+    const onWheel = (e: WheelEvent): void => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      e.stopPropagation()
+      onZoomRef.current(e.deltaY > 0 ? -1 : 1)
+      setZoomBadge(true)
+      if (badgeTimer) clearTimeout(badgeTimer)
+      badgeTimer = setTimeout(() => setZoomBadge(false), 1200)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false, capture: true })
+
     // Arrastar arquivos (imagens, etc.) → cola os caminhos no prompt.
     const onDragOver = (e: DragEvent): void => e.preventDefault()
     const onDrop = (e: DragEvent): void => {
@@ -173,6 +193,8 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
     return () => {
       ro.disconnect()
       cancelAnimationFrame(raf)
+      el.removeEventListener('wheel', onWheel, { capture: true })
+      if (badgeTimer) clearTimeout(badgeTimer)
       el.removeEventListener('dragover', onDragOver)
       el.removeEventListener('drop', onDrop)
       unregisterSearch(tab.id)
@@ -270,6 +292,7 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
           </button>
         </div>
       )}
+      {zoomBadge && <div className="term-zoom">{fontSize} px</div>}
       <div className="term-host" ref={ref} />
     </div>
   )

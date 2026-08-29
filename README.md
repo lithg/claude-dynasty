@@ -20,6 +20,8 @@ Desenvolvimento com hot reload: `pnpm dev`.
 - **Caixa de prompt** multi-linha embaixo: Enter quebra linha, Ctrl+Enter envia, ↑ traz o histórico,
   Ctrl+V cola imagem, Esc volta ao terminal e Ctrl+I volta para a caixa.
 - **Ctrl+F**: busca no terminal com contador de ocorrências.
+- **Ctrl + roda do mouse** dá zoom só no terminal daquele projeto (não na UI toda), e o tamanho
+  fica salvo para a próxima vez que você abrir o projeto.
 - **Ctrl+K**: paleta para pular entre sessões abertas e projetos só com o teclado (Ctrl+1..9 vai
   direto para a aba n; Ctrl+0 pula para a próxima sessão que ficou ociosa).
 - **Shift+Enter** e **Shift+Espaço** quebram linha em vez de enviar, como no Warp.
