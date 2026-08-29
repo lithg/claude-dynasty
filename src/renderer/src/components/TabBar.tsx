@@ -21,12 +21,23 @@ export default function TabBar(): React.JSX.Element | null {
   const name = projects.find((p) => p.path === activeProject)?.name ?? ''
   const ov = config.perProject[name] ?? {}
 
+  const active = mine.find((t) => t.id === activeTabId)
+
+  /**
+   * Muda o modelo/effort do projeto e **também da sessão que está rodando** (`/model X`).
+   * O Claude pode responder que a troca só vale na próxima sessão — é o mesmo aviso de quando
+   * você digita o comando à mão. Atenção: ele grava isso como padrão global no settings.json.
+   */
   const setOv = (patch: { model?: string; effort?: string }): void => {
     const next = { ...ov, ...patch }
     void saveConfig({ perProject: { ...config.perProject, [name]: next } })
+    const cmd = patch.model !== undefined ? 'model' : 'effort'
+    const value = patch.model ?? patch.effort ?? ''
+    // sem valor = "usar o padrão": não manda nada, senão o /model abre o seletor interativo
+    if (!value || !active || active.kind !== 'claude' || active.suspended || active.exited != null) return
+    window.api.pty.write(active.id, `/${cmd} ${value}`)
+    setTimeout(() => window.api.pty.write(active.id, '\r'), 150)
   }
-
-  const active = mine.find((t) => t.id === activeTabId)
   const activeLive = active ? live.find((x) => x.tabId === active.id) : undefined
   const rcActive = Boolean(activeLive?.bridgeSessionId)
   const rcUrl = activeLive?.bridgeSessionId ? `https://claude.ai/code/${activeLive.bridgeSessionId}` : undefined
@@ -107,19 +118,13 @@ export default function TabBar(): React.JSX.Element | null {
         </button>
       </div>
       <div className="tab-actions">
-        {active && active.kind === 'claude' && active.exited == null && ov.model && activeLive?.model && !activeLive.model.toLowerCase().includes(ov.model.replace(/claude-|\[1m\]|-5/g, '').toLowerCase()) && (
-          <button
-            className="btn ghost sm apply-model"
-            title={`A aba atual está em ${modelLabel(activeLive.model)}. Clique para mandar /model ${ov.model} para ela.\nAtenção: o Claude Code também salva isso como padrão global no settings.json.`}
-            onClick={() => {
-              window.api.pty.write(active.id, `/model ${ov.model}`)
-              setTimeout(() => window.api.pty.write(active.id, '\r'), 150)
-            }}
-          >
-            aplicar à aba (/model)
-          </button>
-        )}
-        <label className="sel" title="Modelo das PRÓXIMAS sessões deste projeto (lembrado por projeto). A aba aberta mostra o modelo em uso no chip.">
+        <label
+          className="sel"
+          title={
+            'Troca o modelo da sessão aberta (manda /model) e fica lembrado para as próximas deste projeto.\n' +
+            'O Claude pode avisar que a troca só vale na próxima sessão, e grava como padrão global no settings.json.'
+          }
+        >
           <span>modelo</span>
           <select value={ov.model ?? ''} onChange={(e) => setOv({ model: e.target.value })}>
             {MODEL_OPTIONS.map((o) => (
@@ -129,7 +134,10 @@ export default function TabBar(): React.JSX.Element | null {
             ))}
           </select>
         </label>
-        <label className="sel" title="Effort das próximas sessões deste projeto (lembrado por projeto)">
+        <label
+          className="sel"
+          title="Troca o effort da sessão aberta (manda /effort) e fica lembrado para as próximas deste projeto."
+        >
           <span>effort</span>
           <select value={ov.effort ?? ''} onChange={(e) => setOv({ effort: e.target.value })}>
             {EFFORT_OPTIONS.map((o) => (

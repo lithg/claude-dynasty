@@ -21,6 +21,8 @@ interface State {
   usage: UsageInfo | null
   settingsOpen: boolean
   paletteOpen: boolean
+  /** primeira vez que o app abre nesta máquina (sem config.json) */
+  firstRun: boolean
   panelOpen: boolean
   showHidden: boolean
   filter: string
@@ -47,6 +49,7 @@ interface State {
   toggleRc: (id: string) => void
 
   setSettingsOpen: (v: boolean) => void
+  setFirstRun: (v: boolean) => void
   setPaletteOpen: (v: boolean) => void
   setPanelOpen: (v: boolean) => void
   setShowHidden: (v: boolean) => void
@@ -76,17 +79,19 @@ export const useStore = create<State>((set, get) => ({
   usage: null,
   settingsOpen: false,
   paletteOpen: false,
+  firstRun: false,
   panelOpen: true,
   showHidden: false,
   filter: '',
 
   init: async () => {
-    const [config, live, tabs] = await Promise.all([
+    const [config, live, tabs, firstRun] = await Promise.all([
       window.api.config.get(),
       window.api.sessions.live(),
-      window.api.tabs.list()
+      window.api.tabs.list(),
+      window.api.app.firstRun()
     ])
-    set({ config, live, tabs: tabs.filter((t) => t.exited == null) })
+    set({ config, live, tabs: tabs.filter((t) => t.exited == null), firstRun })
     await get().loadProjects()
     void get().refreshUsage()
     const first = get().projects[0]
@@ -207,6 +212,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setSettingsOpen: (v) => set({ settingsOpen: v }),
+  setFirstRun: (v) => set({ firstRun: v }),
   setPaletteOpen: (v) => set({ paletteOpen: v }),
   setPanelOpen: (v) => set({ panelOpen: v }),
   setShowHidden: (v) => set({ showHidden: v }),

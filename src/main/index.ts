@@ -2,6 +2,7 @@ import {
   app,
   BrowserWindow,
   clipboard,
+  dialog,
   ipcMain,
   Menu,
   nativeImage,
@@ -17,7 +18,7 @@ import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import type { AppConfig, LiveSession, SpawnClaudeOpts, SpawnShellOpts, TermTab, UsageInfo } from '@shared/types'
 import { resolveTheme } from '@shared/themes'
-import { getConfig, setConfig, configPath } from './config'
+import { getConfig, setConfig, configPath, isFirstRun } from './config'
 import { listProjects, projectDetails } from './projects'
 import { LiveSessionWatcher, lastAssistantText, readHistory, readLiveSessions, transcriptExists } from './claudeSessions'
 import { PtyManager } from './pty'
@@ -36,6 +37,8 @@ const tabs = new Map<string, TermTab>()
 const RESOURCES = join(__dirname, '../../resources')
 const APP_NAME = 'Claude Wrapper'
 const START_HIDDEN = process.argv.includes('--hidden')
+/** Guardado antes de qualquer gravação: some assim que o primeiro setConfig roda. */
+const FIRST_RUN = isFirstRun()
 const POPUP_W = 360
 
 function send(channel: string, ...args: unknown[]): void {
@@ -470,6 +473,49 @@ function registerIpc(): void {
       })
     }
   )
+
+  ipcMain.handle('app:firstRun', () => FIRST_RUN)
+
+  ipcMain.handle('app:pickFolder', async (_e, current?: string): Promise<string | null> => {
+    const r = await dialog.showOpenDialog({
+      title: 'Pasta onde ficam seus projetos',
+      defaultPath: current || undefined,
+      properties: ['openDirectory', 'createDirectory']
+    })
+    return r.canceled ? null : (r.filePaths[0] ?? null)
+  })
+
+  /**
+   * Atalhos do Menu Iniciar e da área de trabalho. O `appUserModelId` é o que faz as
+   * notificações aparecerem como "Claude Wrapper" em vez de "Electron".
+   */
+  ipcMain.handle('app:createShortcuts', (): { created: string[]; error?: string } => {
+    if (process.platform !== 'win32') return { created: [], error: 'só no Windows' }
+    const target = process.execPath
+    const args = process.defaultApp ? `"${app.getAppPath()}"` : ''
+    const details = {
+      target,
+      args,
+      cwd: process.defaultApp ? app.getAppPath() : undefined,
+      icon: join(RESOURCES, 'icon.ico'),
+      iconIndex: 0,
+      description: 'Painel para tocar seus projetos com o Claude Code',
+      appUserModelId: 'br.com.guilherme.wrapperclaude'
+    }
+    const places = [
+      join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', `${APP_NAME}.lnk`),
+      join(app.getPath('desktop'), `${APP_NAME}.lnk`)
+    ]
+    const created: string[] = []
+    for (const p of places) {
+      try {
+        if (shell.writeShortcutLink(p, 'create', details)) created.push(p)
+      } catch (err) {
+        return { created, error: String(err) }
+      }
+    }
+    return { created }
+  })
 
   ipcMain.handle('app:showMain', () => showWindow())
   ipcMain.handle('app:hidePopup', () => hidePopup())

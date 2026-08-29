@@ -580,6 +580,36 @@ button {
   pointer-events: none;
 }
 
+/* boas-vindas (primeiro uso) */
+.modal.welcome {
+  max-width: 560px;
+}
+
+.modal.welcome .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.modal.welcome p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.modal.welcome .row.gap {
+  gap: 8px;
+}
+
+.modal.welcome input[type='text'],
+.modal.welcome .row.gap > input {
+  flex: 1;
+}
+
+.danger-fg {
+  color: var(--danger);
+}
+
 /* ---------- paleta (Ctrl+K) ---------- */
 .palette {
   width: min(620px, 92vw);

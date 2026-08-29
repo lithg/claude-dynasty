@@ -4,6 +4,9 @@ Painel pessoal para tocar os projetos de `~/Documents/GitHub` com o Claude Code 
 na mão. Clica no projeto → sessão `claude` já aberta na pasta, com `--dangerously-skip-permissions`
 (opcional, global ou por projeto).
 
+Instalando em outra máquina? Veja **[INSTALAR.md](INSTALAR.md)** — está escrito para você colar no
+Claude Code e deixar ele montar.
+
 ## Rodar
 ```
 pnpm install
@@ -16,7 +19,8 @@ Desenvolvimento com hot reload: `pnpm dev`.
 - **Sidebar**: projetos (fixados no topo), bolinha verde pulsando = Claude trabalhando naquela pasta,
   verde fixa = sessão ociosa; inclui sessões abertas fora do wrapper.
 - **Abas**: várias sessões por projeto (Claude ou PowerShell); as abas da última execução voltam
-  suspensas e retomam com `claude --resume` num clique.
+  suspensas e retomam com `claude --resume` num clique. Os dropdowns de modelo/effort trocam o
+  modelo **da sessão aberta** (mandam `/model`) e ficam lembrados por projeto.
 - **Caixa de prompt** multi-linha embaixo: Enter quebra linha, Ctrl+Enter envia, ↑ traz o histórico,
   Ctrl+V cola imagem, Esc volta ao terminal e Ctrl+I volta para a caixa.
 - **Ctrl+F**: busca no terminal com contador de ocorrências.

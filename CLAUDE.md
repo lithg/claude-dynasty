@@ -79,6 +79,22 @@ rolar o buffer. A gravação é adiada 400 ms para não escrever o `config.json`
 Sem override, vale o `fontSize` global das configurações. É por projeto, não por aba: duas abas do
 mesmo projeto ficam do mesmo tamanho.
 
+## Modelo e effort na sessão aberta
+Os dropdowns da barra de abas mudam o override do projeto **e mandam `/model X` / `/effort X`
+para a sessão que está rodando**. O Claude pode responder que a troca só vale para a próxima
+sessão — é o mesmo aviso de digitar o comando à mão. Efeito colateral conhecido e aceito: o
+Claude Code grava a escolha como **padrão global** em `~/.claude/settings.json`. Escolher "padrão"
+(valor vazio) não manda nada, senão o `/model` sem argumento abre o seletor interativo.
+
+## Primeiro uso em outra máquina
+`isFirstRun()` = não existe `config.json` ainda. Nesse caso o renderer mostra o `WelcomeModal`:
+escolhe a pasta raiz dos projetos (`app:pickFolder` → `dialog.showOpenDialog`) e oferece criar os
+atalhos (`app:createShortcuts` → `shell.writeShortcutLink` com `appUserModelId`, que é o que faz o
+toast dizer "Claude Wrapper"). O botão de criar atalhos também está nas Configurações.
+Os defaults do `config.ts` são neutros (`pinned: []`, raiz em `~/Documents/GitHub`) — nada de
+projeto pessoal embutido. O passo a passo para montar em outra máquina está em `INSTALAR.md`,
+escrito para o Claude Code do dono da máquina executar.
+
 ## Temas
 `src/shared/themes.ts` — cada tema define as variáveis da UI **e** as cores do xterm (janela do
 Claude); alguns trocam a fonte (Matrix, âmbar). Aplicados como CSS vars inline em `App.tsx`.

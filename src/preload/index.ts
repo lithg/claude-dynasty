@@ -48,6 +48,9 @@ const api = {
     clipboardHasImage: (): Promise<boolean> => ipcRenderer.invoke('app:clipboardHasImage'),
     saveClipboardImage: (): Promise<string | null> => ipcRenderer.invoke('app:saveClipboardImage'),
     showMain: (): Promise<void> => ipcRenderer.invoke('app:showMain'),
+    firstRun: (): Promise<boolean> => ipcRenderer.invoke('app:firstRun'),
+    pickFolder: (current?: string): Promise<string | null> => ipcRenderer.invoke('app:pickFolder', current),
+    createShortcuts: (): Promise<{ created: string[]; error?: string }> => ipcRenderer.invoke('app:createShortcuts'),
     suggestReply: (cwd: string, sessionId: string): Promise<{ text?: string; error?: string }> =>
       ipcRenderer.invoke('app:suggestReply', cwd, sessionId),
     hidePopup: (): Promise<void> => ipcRenderer.invoke('app:hidePopup'),

@@ -12,6 +12,7 @@ import PromptBox from './components/PromptBox'
 import ProjectPanel from './components/ProjectPanel'
 import SettingsModal from './components/SettingsModal'
 import CommandPalette from './components/CommandPalette'
+import WelcomeModal from './components/WelcomeModal'
 import TrayPopup from './components/TrayPopup'
 
 const IS_POPUP = new URLSearchParams(window.location.search).has('popup')
@@ -237,6 +238,7 @@ function Main(): React.JSX.Element {
       {panelOpen && <ProjectPanel />}
       <SettingsModal />
       <CommandPalette />
+      <WelcomeModal />
     </div>
   )
 }

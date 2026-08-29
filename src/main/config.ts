@@ -6,7 +6,7 @@ import type { AppConfig } from '@shared/types'
 
 const DEFAULTS: AppConfig = {
   rootDir: join(homedir(), 'Documents', 'GitHub'),
-  pinned: ['Lapides', 'Managol', 'Managol2.0', 'Managol-Godot'],
+  pinned: [],
   hidden: [],
   skipPermissions: true,
   perProject: {},
@@ -39,6 +39,11 @@ function file(): string {
 
 export function configPath(): string {
   return file()
+}
+
+/** Ainda não existe config gravado: primeira vez que o app abre nesta máquina. */
+export function isFirstRun(): boolean {
+  return !existsSync(file())
 }
 
 export function getConfig(): AppConfig {

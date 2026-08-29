@@ -12,6 +12,7 @@ export default function SettingsModal(): React.JSX.Element | null {
   const [draft, setDraft] = useState<AppConfig | null>(null)
   const [bin, setBin] = useState('')
   const [cfgPath, setCfgPath] = useState('')
+  const [shortcutMsg, setShortcutMsg] = useState('')
 
   useEffect(() => {
     if (open && config) {
@@ -149,6 +150,19 @@ export default function SettingsModal(): React.JSX.Element | null {
           <div className="row gap">
             <input type="number" min={9} max={24} style={{ width: 70 }} value={draft.fontSize} onChange={(e) => set({ fontSize: Number(e.target.value) })} />
             <input value={draft.fontFamily} onChange={(e) => set({ fontFamily: e.target.value })} />
+          </div>
+
+          <span>atalhos</span>
+          <div>
+            <button
+              className="btn ghost"
+              onClick={() => {
+                void window.api.app.createShortcuts().then((r) => setShortcutMsg(r.error ?? `criados: ${r.created.length}`))
+              }}
+            >
+              criar atalhos (Menu Iniciar / área de trabalho)
+            </button>
+            {shortcutMsg && <div className="muted small">{shortcutMsg}</div>}
           </div>
 
           <span>ocultos</span>
