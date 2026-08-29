@@ -60,6 +60,11 @@ export default function SettingsModal(): React.JSX.Element | null {
             <input type="checkbox" checked={draft.notifyOnIdle} onChange={(e) => set({ notifyOnIdle: e.target.checked })} />
             notificação do Windows quando uma sessão termina e a janela não está em foco
           </label>
+          <span></span>
+          <label className="check">
+            <input type="checkbox" checked={draft.notifyExternal} onChange={(e) => set({ notifyExternal: e.target.checked })} />
+            incluir sessões abertas fora do wrapper (terminal, Warp…)
+          </label>
 
           <span>remote control</span>
           <label className="check">

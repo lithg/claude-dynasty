@@ -12,6 +12,7 @@ import {
   Tray
 } from 'electron'
 import { join, basename } from 'node:path'
+import { mkdirSync, writeFileSync, readdirSync, statSync, unlinkSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import type { AppConfig, LiveSession, SpawnClaudeOpts, SpawnShellOpts, TermTab, UsageInfo } from '@shared/types'
@@ -288,6 +289,19 @@ function registerIpc(): void {
   ipcMain.handle('app:copy', (_e, text: string) => clipboard.writeText(text))
   ipcMain.handle('app:claudeBin', () => resolveClaudeBin())
   ipcMain.handle('app:clipboardHasImage', () => !clipboard.readImage().isEmpty())
+  /**
+   * Ctrl+V com imagem: o Claude Code não reage ao Ctrl+V vindo do PTY, mas reconhece um
+   * caminho .png colado e anexa como [Image #N] (mesmo truque do Warp). Salva e devolve o caminho.
+   */
+  ipcMain.handle('app:saveClipboardImage', (): string | null => {
+    const img = clipboard.readImage()
+    if (img.isEmpty()) return null
+    const dir = join(app.getPath('temp'), 'claude-wrapper')
+    mkdirSync(dir, { recursive: true })
+    const file = join(dir, `colado-${new Date().toISOString().replace(/[:.]/g, '-')}.png`)
+    writeFileSync(file, img.toPNG())
+    return file
+  })
   ipcMain.handle('app:showMain', () => showWindow())
   ipcMain.handle('app:hidePopup', () => hidePopup())
   ipcMain.on('popup:height', (_e, h: number) => placePopup(Math.ceil(h)))
@@ -398,7 +412,21 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', showWindow)
 }
 
+/** Apaga PNGs colados com mais de 2 dias. */
+function cleanPasteDir(): void {
+  const dir = join(app.getPath('temp'), 'claude-wrapper')
+  try {
+    for (const f of readdirSync(dir)) {
+      const full = join(dir, f)
+      if (Date.now() - statSync(full).mtimeMs > 2 * 86_400_000) unlinkSync(full)
+    }
+  } catch {
+    /* pasta ainda não existe */
+  }
+}
+
 app.whenReady().then(() => {
+  cleanPasteDir()
   ptys = new PtyManager((ch, ...a) => {
     if (ch === 'pty:exit') {
       const t = tabs.get(a[0] as string)
@@ -421,6 +449,9 @@ app.whenReady().then(() => {
     (s) => {
       const cfg = getConfig()
       if (!cfg.notifyOnIdle) return
+      // Só sessões abertas pelo wrapper (as externas — Warp, terminal — viram ruído).
+      const mine = Array.from(tabs.values()).some((t) => t.sessionId === s.sessionId && t.exited == null)
+      if (!mine && !cfg.notifyExternal) return
       if (win?.isFocused()) return
       if (!Notification.isSupported()) return
       const n = new Notification({

@@ -46,6 +46,7 @@ const api = {
     copy: (text: string): Promise<void> => ipcRenderer.invoke('app:copy', text),
     claudeBin: (): Promise<{ file: string; args: string[] }> => ipcRenderer.invoke('app:claudeBin'),
     clipboardHasImage: (): Promise<boolean> => ipcRenderer.invoke('app:clipboardHasImage'),
+    saveClipboardImage: (): Promise<string | null> => ipcRenderer.invoke('app:saveClipboardImage'),
     showMain: (): Promise<void> => ipcRenderer.invoke('app:showMain'),
     hidePopup: (): Promise<void> => ipcRenderer.invoke('app:hidePopup'),
     pathForFile: (f: File): string => webUtils.getPathForFile(f)

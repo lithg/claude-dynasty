@@ -80,9 +80,17 @@ desconectar); botão direito abre a URL. Opção `--remote-control <nome>` por p
 apenas nomeia a sessão no claude.ai.
 
 ## Ctrl+V com imagem
-`TerminalView` intercepta Ctrl+V: se a área de transferência tem imagem, envia `\x16` cru ao
-PTY (o Claude Code lê a imagem sozinho); se é texto, cola via xterm. Arrastar arquivos cola os
-caminhos.
+O Claude Code **não reage** ao Ctrl+V vindo do PTY (testado: 0x16, kitty `CSI 118;5u` e
+win32-input-mode — só redesenha). O que funciona é o truque do Warp: `TerminalView` intercepta
+Ctrl+V, o main salva a imagem em `%TEMP%\claude-wrapper\colado-<ts>.png` e o caminho é colado
+(bracketed paste) — o Claude reconhece caminhos `.png/.jpg` e vira `[Image #N]`. PNGs com mais
+de 2 dias são apagados no start. Texto cola normal. Arrastar arquivos cola os caminhos.
+
+## Notificações
+Só para sessões abertas pelo wrapper (config `notifyExternal` inclui as externas). Os toasts
+mostram "Claude Wrapper" porque os atalhos têm `System.AppUserModel.ID =
+br.com.guilherme.wrapperclaude` (gravado via IPropertyStore no .lnk; sem isso o Windows mostra
+"Electron").
 
 ## Atalhos no app
 Ctrl+T (ou o "+" ao lado das abas) nova sessão Claude · Ctrl+W fecha aba · Ctrl+Tab alterna · Ctrl+B painel · Ctrl+, config ·

@@ -117,6 +117,8 @@ export interface AppConfig {
   model: string
   effort: string
   notifyOnIdle: boolean
+  /** notificar também sessões abertas fora do wrapper (Warp, terminal, etc.) */
+  notifyExternal: boolean
   autoOpenClaude: boolean
   /** fechar a janela esconde na bandeja em vez de sair (sessões continuam vivas) */
   closeToTray: boolean

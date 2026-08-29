@@ -19,6 +19,7 @@ const DEFAULTS: AppConfig = {
   model: '',
   effort: '',
   notifyOnIdle: true,
+  notifyExternal: false,
   autoOpenClaude: true,
   closeToTray: true,
   remoteControl: false

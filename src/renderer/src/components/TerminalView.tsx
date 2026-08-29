@@ -50,15 +50,19 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
     term.onResize(({ cols, rows }) => window.api.pty.resize(tab.id, cols, rows))
 
     const pasteFromClipboard = (): void => {
-      void window.api.app.clipboardHasImage().then(async (hasImage) => {
-        // Imagem: manda Ctrl+V cru — o Claude Code lê a imagem da área de transferência sozinho.
-        if (hasImage && tab.kind === 'claude') {
-          window.api.pty.write(tab.id, '\x16')
-          return
+      void (async () => {
+        // Imagem: o Claude Code não reage ao Ctrl+V vindo do PTY, mas anexa um caminho .png
+        // colado como [Image #N] (mesmo truque do Warp). Salvamos e colamos o caminho.
+        if (tab.kind === 'claude') {
+          const file = await window.api.app.saveClipboardImage()
+          if (file) {
+            term.paste(file + ' ')
+            return
+          }
         }
         const text = await navigator.clipboard.readText().catch(() => '')
         if (text) term.paste(text)
-      })
+      })()
     }
 
     term.attachCustomKeyEventHandler((ev) => {
