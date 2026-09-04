@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'ele
 import type {
   AppConfig,
   DocInfo,
+  ImageFull,
+  ImageThumb,
   HistorySession,
   LiveSession,
   ProjectDetails,
@@ -53,6 +55,12 @@ const api = {
   usage: {
     get: (force = false): Promise<UsageInfo> => ipcRenderer.invoke('usage:get', force),
     onUpdate: (cb: (u: UsageInfo | null) => void): Unsub => on<[UsageInfo | null]>('usage:update', cb)
+  },
+  images: {
+    thumb: (path: string, cwd?: string): Promise<ImageThumb | null> => ipcRenderer.invoke('images:thumb', path, cwd),
+    full: (path: string, cwd?: string): Promise<ImageFull | null> => ipcRenderer.invoke('images:full', path, cwd),
+    reveal: (path: string): Promise<void> => ipcRenderer.invoke('images:reveal', path),
+    open: (path: string): Promise<string> => ipcRenderer.invoke('images:open', path)
   },
   app: {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke('app:openExternal', url),

@@ -84,6 +84,12 @@ export default function SettingsModal(): React.JSX.Element | null {
             sugerir a resposta sozinho quando o Claude termina (faixa acima do terminal, Tab escreve na
             caixa do Claude) — usa um <code>claude -p</code> com Haiku a cada resposta
           </label>
+          <span></span>
+          <label className="check">
+            <input type="checkbox" checked={draft.inlineImages} onChange={(e) => set({ inlineImages: e.target.checked })} />
+            miniatura clicável em cima dos caminhos de imagem que o Claude escreve no terminal (clique
+            abre em tela cheia)
+          </label>
 
           <span>windows</span>
           <label className="check">

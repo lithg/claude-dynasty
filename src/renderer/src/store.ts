@@ -28,6 +28,8 @@ interface State {
   docSaving: boolean
   settingsOpen: boolean
   paletteOpen: boolean
+  /** imagem aberta em tela cheia (veio de uma miniatura do terminal) */
+  lightbox: { tabId: string; path: string; cwd: string } | null
   /** primeira vez que o app abre nesta máquina (sem config.json) */
   firstRun: boolean
   panelOpen: boolean
@@ -67,6 +69,8 @@ interface State {
   setSettingsOpen: (v: boolean) => void
   setFirstRun: (v: boolean) => void
   setPaletteOpen: (v: boolean) => void
+  openLightbox: (tabId: string, path: string, cwd: string) => void
+  closeLightbox: () => void
   setPanelOpen: (v: boolean) => void
   setShowHidden: (v: boolean) => void
   setFilter: (v: string) => void
@@ -124,6 +128,7 @@ export const useStore = create<State>((set, get) => ({
   docSaving: false,
   settingsOpen: false,
   paletteOpen: false,
+  lightbox: null,
   firstRun: false,
   panelOpen: true,
   showHidden: false,
@@ -361,6 +366,9 @@ export const useStore = create<State>((set, get) => ({
 
   setSettingsOpen: (v) => set({ settingsOpen: v }),
   setFirstRun: (v) => set({ firstRun: v }),
+  openLightbox: (tabId, path, cwd) => set({ lightbox: { tabId, path, cwd } }),
+  closeLightbox: () => set({ lightbox: null }),
+
   setPaletteOpen: (v) => set({ paletteOpen: v }),
   setPanelOpen: (v) => set({ panelOpen: v }),
   setShowHidden: (v) => set({ showHidden: v }),

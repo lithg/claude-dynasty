@@ -9,6 +9,7 @@ import Sidebar from './components/Sidebar'
 import TabBar from './components/TabBar'
 import TerminalView from './components/TerminalView'
 import SuggestChip from './components/SuggestChip'
+import ImageLightbox from './components/ImageLightbox'
 import ProjectPanel from './components/ProjectPanel'
 import SettingsModal from './components/SettingsModal'
 import CommandPalette from './components/CommandPalette'
@@ -211,6 +212,7 @@ function Main(): React.JSX.Element {
                 fontSize={config?.perProject[projectName(t.projectPath)]?.fontSize ?? config?.fontSize ?? 13}
                 fontFamily={fontFamily}
                 onZoom={(delta) => useStore.getState().zoomProject(t.projectPath, delta)}
+                inlineImages={config?.inlineImages ?? true}
               />
             ))}
           {activeTab?.suspended && (
@@ -259,6 +261,7 @@ function Main(): React.JSX.Element {
       <SettingsModal />
       <CommandPalette />
       <WelcomeModal />
+      <ImageLightbox />
     </div>
   )
 }

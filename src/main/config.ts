@@ -28,7 +28,8 @@ const DEFAULTS: AppConfig = {
   startWithWindows: true,
   docsDir: '',
   docsOrder: [],
-  projectOrder: []
+  projectOrder: [],
+  inlineImages: true
 }
 
 let cache: AppConfig | null = null

@@ -1,12 +1,39 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Terminal } from '@xterm/xterm'
+import { Terminal, type IDecoration } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { WebglAddon } from '@xterm/addon-webgl'
-import type { TermTab } from '@shared/types'
+import type { ImageThumb, TermTab } from '@shared/types'
 import type { TermColors } from '@shared/themes'
-import { registerSearch, registerTerm, unregisterSearch, unregisterTerm } from '@/lib/terminals'
+import { registerSearch, registerTerm, setImagens, unregisterSearch, unregisterTerm } from '@/lib/terminals'
+import { acharImagens } from '@/lib/imagePaths'
+import { useStore } from '@/store'
+
+/** Tamanho da miniatura, em células do terminal (decoration não empurra texto: é sobreposição). */
+const MINI_COLS = 13
+const MINI_ROWS = 6
+/** Quantas linhas fora da tela a varredura olha, para a miniatura já estar pronta ao rolar. */
+const MARGEM = 150
+/** Debounce da varredura: o TUI redesenha muito, não adianta varrer a cada escrita. */
+const ESPERA = 400
+
+/** Uma pergunta por caminho: o `null` (não existe / não é imagem) também fica guardado. */
+const cacheThumb = new Map<string, ImageThumb | null>()
+
+async function miniatura(path: string, cwd: string): Promise<ImageThumb | null> {
+  const chave = `${cwd}|${path}`
+  const guardado = cacheThumb.get(chave)
+  if (guardado !== undefined) return guardado
+  const r = await window.api.images.thumb(path, cwd).catch(() => null)
+  if (cacheThumb.size > 400) cacheThumb.clear()
+  cacheThumb.set(chave, r)
+  return r
+}
+
+function tamanho(bytes: number): string {
+  return bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
 
 interface Props {
   tab: TermTab
@@ -16,9 +43,19 @@ interface Props {
   fontFamily: string
   /** Ctrl+roda do mouse: +1 / -1 no tamanho da fonte deste projeto */
   onZoom: (delta: number) => void
+  /** miniatura em cima dos caminhos de imagem que o Claude escreve */
+  inlineImages: boolean
 }
 
-export default function TerminalView({ tab, visible, colors, fontSize, fontFamily, onZoom }: Props): React.JSX.Element {
+export default function TerminalView({
+  tab,
+  visible,
+  colors,
+  fontSize,
+  fontFamily,
+  onZoom,
+  inlineImages
+}: Props): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -232,6 +269,127 @@ export default function TerminalView({ tab, visible, colors, fontSize, fontFamil
     if (!term) return
     term.options.theme = colors
   }, [colors])
+
+  /**
+   * Miniatura clicável em cima do caminho de imagem que o Claude escreve no terminal.
+   *
+   * O Claude Code não emite Sixel/iTerm2/Kitty: o que chega no PTY é texto, não há imagem para o
+   * xterm renderizar (por isso o @xterm/addon-image não resolveria). A varredura acha o caminho
+   * no buffer e ancora uma decoration na linha onde ele termina.
+   *
+   * Decoration **não empurra texto** — o xterm não reflui linhas —, então a miniatura é um cartão
+   * opaco sobreposto, encostado na margem direita, que é onde quase sempre sobra espaço.
+   */
+  useEffect(() => {
+    const term = termRef.current
+    if (!term) return
+    if (!inlineImages) {
+      setImagens(tab.id, [])
+      return
+    }
+    const cwd = tab.projectPath
+    /** `path` é o caminho cru do terminal (chaveia a varredura); `real` é o resolvido pelo main. */
+    const vivas: { deco: IDecoration; path: string; real: string }[] = []
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let rodando = false
+    let morto = false
+
+    const publicar = (): void =>
+      setImagens(
+        tab.id,
+        [...vivas].sort((a, b) => a.deco.marker.line - b.deco.marker.line).map((v) => v.real)
+      )
+
+    const varrer = async (): Promise<void> => {
+      if (morto || rodando || document.hidden) return
+      rodando = true
+      try {
+        const buf = term.buffer.active
+        const de = Math.max(0, buf.viewportY - MARGEM)
+        const ate = Math.min(buf.length - 1, buf.viewportY + term.rows + MARGEM)
+        const achados = acharImagens(term, de, ate)
+        const chaves = new Set(achados.map((a) => `${a.linha}|${a.path}`))
+
+        // o TUI redesenha a área viva: caminho que sumiu da linha perde a miniatura
+        for (let i = vivas.length - 1; i >= 0; i--) {
+          const { deco, path } = vivas[i]
+          const linha = deco.marker.line
+          if (deco.marker.isDisposed || (linha >= de && linha <= ate && !chaves.has(`${linha}|${path}`))) {
+            deco.dispose()
+            vivas.splice(i, 1)
+          }
+        }
+        const jaTem = new Set(vivas.map((v) => `${v.deco.marker.line}|${v.path}`))
+
+        for (const a of achados) {
+          if (morto) break
+          const chave = `${a.linha}|${a.path}`
+          if (jaTem.has(chave)) continue
+          if (cacheThumb.get(`${cwd}|${a.path}`) === null) continue // já perguntamos: não existe
+          const info = await miniatura(a.path, cwd)
+          if (!info || morto) continue
+          const b = term.buffer.active
+          const marker = term.registerMarker(a.linha - (b.baseY + b.cursorY))
+          if (!marker) continue
+          const deco = term.registerDecoration({
+            marker,
+            anchor: 'right',
+            x: 1,
+            width: MINI_COLS,
+            height: MINI_ROWS
+          })
+          if (!deco) {
+            marker.dispose()
+            continue
+          }
+          vivas.push({ deco, path: a.path, real: info.path })
+          jaTem.add(chave)
+          deco.onRender((el) => {
+            if (el.dataset.pronto) return
+            el.dataset.pronto = '1'
+            el.classList.add('term-img')
+            const dim = info.width ? ` · ${info.width}×${info.height}` : ''
+            el.title = `${info.path}\n${tamanho(info.size)}${dim}\nclique para abrir`
+            const img = document.createElement('img')
+            img.src = info.thumb
+            img.draggable = false
+            el.appendChild(img)
+            // sem isto o xterm começa a selecionar o texto que está por baixo do cartão
+            el.addEventListener('mousedown', (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            })
+            el.addEventListener('click', (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              useStore.getState().openLightbox(tab.id, info.path, cwd)
+            })
+          })
+        }
+        publicar()
+      } finally {
+        rodando = false
+      }
+    }
+
+    const agendar = (): void => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => void varrer(), ESPERA)
+    }
+    const off = [term.onWriteParsed(agendar), term.onScroll(agendar)]
+    document.addEventListener('visibilitychange', agendar)
+    agendar()
+
+    return () => {
+      morto = true
+      if (timer) clearTimeout(timer)
+      document.removeEventListener('visibilitychange', agendar)
+      for (const d of off) d.dispose()
+      for (const v of vivas) v.deco.dispose()
+      vivas.length = 0
+      setImagens(tab.id, [])
+    }
+  }, [tab.id, tab.projectPath, inlineImages])
 
   useEffect(() => {
     const term = termRef.current

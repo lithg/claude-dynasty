@@ -150,6 +150,8 @@ export interface AppConfig {
   docsOrder: string[]
   /** ordem manual dos projetos (nomes de pasta); o resto vai depois, por mtime */
   projectOrder: string[]
+  /** miniatura clicável em cima dos caminhos de imagem que o Claude escreve no terminal */
+  inlineImages: boolean
   windowBounds?: { x?: number; y?: number; width: number; height: number; maximized?: boolean }
 }
 
@@ -183,4 +185,24 @@ export interface SpawnShellOpts {
   command?: string
   cols?: number
   rows?: number
+}
+
+/** Imagem encontrada no terminal, já resolvida e reduzida pelo main. */
+export interface ImageThumb {
+  path: string
+  size: number
+  /** dimensões do original (0 quando o nativeImage não decodifica, ex.: SVG) */
+  width: number
+  height: number
+  /** data URL da miniatura */
+  thumb: string
+}
+
+/** A mesma imagem em tamanho cheio, para o lightbox. */
+export interface ImageFull {
+  path: string
+  size: number
+  width: number
+  height: number
+  url: string
 }

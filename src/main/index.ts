@@ -25,6 +25,7 @@ import { LiveSessionWatcher, lastAssistantText, readHistory, readLiveSessions, t
 import { PtyManager } from './pty'
 import { resolveClaudeBin } from './claudeBin'
 import { fetchUsage } from './usage'
+import { imageFull, imageThumb, openImage, revealImage } from './images'
 
 let win: BrowserWindow | null = null
 let popup: BrowserWindow | null = null
@@ -448,6 +449,12 @@ function registerIpc(): void {
   ipcMain.handle('sessions:history', (_e, path: string) => readHistory(path))
 
   ipcMain.handle('usage:get', (_e, force?: boolean) => refreshUsage(Boolean(force)))
+
+  // Imagens que o Claude escreve como caminho no terminal (miniatura inline + lightbox).
+  ipcMain.handle('images:thumb', (_e, path: string, cwd?: string) => imageThumb(path, cwd))
+  ipcMain.handle('images:full', (_e, path: string, cwd?: string) => imageFull(path, cwd))
+  ipcMain.handle('images:reveal', (_e, path: string) => revealImage(path))
+  ipcMain.handle('images:open', (_e, path: string) => openImage(path))
 
   ipcMain.handle('app:openExternal', (_e, url: string) => shell.openExternal(url))
   ipcMain.handle('app:copy', (_e, text: string) => clipboard.writeText(text))

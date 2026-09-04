@@ -16,6 +16,19 @@ export function registerTerm(id: string, term: Terminal): void {
 export function unregisterTerm(id: string): void {
   terms.delete(id)
   pending.delete(id)
+  imagens.delete(id)
+}
+
+/** Imagens que a varredura achou em cada aba, em ordem de linha — é a lista que o ←/→ do
+ *  lightbox percorre. */
+const imagens = new Map<string, string[]>()
+
+export function setImagens(id: string, paths: string[]): void {
+  imagens.set(id, paths)
+}
+
+export function getImagens(id: string): string[] {
+  return imagens.get(id) ?? []
 }
 
 export function feedTerm(id: string, data: string): void {

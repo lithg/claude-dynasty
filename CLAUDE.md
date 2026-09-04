@@ -156,6 +156,32 @@ Ctrl+V, o main salva a imagem em `%TEMP%\claude-dynasty\colado-<ts>.png` e o cam
 (bracketed paste) — o Claude reconhece caminhos `.png/.jpg` e vira `[Image #N]`. PNGs com mais
 de 2 dias são apagados no start. Texto cola normal. Arrastar arquivos cola os caminhos.
 
+## Imagem no terminal (o caminho vira miniatura)
+Quando o Claude devolve uma imagem, o que chega no PTY é **texto** — o caminho. Ele não emite
+Sixel / iTerm2 IIP / Kitty, então o `@xterm/addon-image` não teria o que renderizar: quem resolve
+é o wrapper. Config `inlineImages` (ligada).
+
+`lib/imagePaths.ts` varre o buffer do xterm atrás de caminhos e `TerminalView` ancora uma
+**decoration** (13×6 células, encostada na margem direita) na linha onde o caminho termina; o
+clique abre o `ImageLightbox` (zoom com roda/+/−, arrastar, ←/→ entre as imagens da aba, copiar
+caminho, abrir na pasta, abrir fora, Esc fecha). Detalhes que doem se mexer:
+- **Decoration não empurra texto** — o xterm não reflui linhas. A miniatura é um cartão **opaco**
+  sobreposto, senão o texto de baixo vaza. Por isso fica na margem direita, onde sobra espaço.
+- O caminho **não vem numa linha só**: o TUI quebra no meio da palavra e ainda indenta a
+  continuação (`…\scr` + `    atchpad\ficha.png`). Não é wrap do xterm — `isWrapped` é **false** —,
+  então a colagem é na mão, até 3 linhas, e só quando a linha parece cortada no meio de um caminho.
+- A regex é generosa de propósito; quem diz "não é imagem" é o main (`images:thumb` devolve `null`
+  quando o arquivo não existe). Sem essa validação, `https://x/a.png` viraria a unidade `s:\` —
+  daí os dois olhares-para-trás. O `null` fica no cache, então um falso positivo só é perguntado
+  uma vez.
+- Colar linha a linha acha o caminho bom **e** os pedaços dele; o filtro final descarta todo
+  achado que é sufixo de outro que termina na mesma linha.
+- `~\…` é expandido no main (`homedir()`), que é como o Claude escreve o caminho.
+- Varredura: só a volta do que está na tela (±150 linhas), debounce de 400 ms em `onWriteParsed` /
+  `onScroll`, parada quando `document.hidden`. Medido: **0,62 ms** por varredura em 400 linhas.
+- Decoration ganha `display:none` no **buffer alternativo** (quem roda `vim` na aba não vê
+  miniatura) — comportamento do próprio xterm, e é o certo.
+
 ## Abas restauradas
 As abas abertas são gravadas em `%APPDATA%/claude-dynasty/tabs.json` (a cada spawn/kill/exit e no
 `before-quit`). Ao abrir, elas voltam **suspensas**: aparecem na barra com `(suspensa)`, sem
