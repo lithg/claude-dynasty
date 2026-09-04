@@ -82,6 +82,8 @@ export function projectName(path: string): string {
 }
 
 let zoomTimer: ReturnType<typeof setTimeout> | null = null
+/** projetos com sessão sendo aberta agora: dois cliques rápidos não abrem duas sessões */
+const abrindo = new Set<string>()
 /** gravação adiada do documento aberto (auto save) */
 let pendente: { path: string; text: string; timer: ReturnType<typeof setTimeout> } | null = null
 
@@ -189,14 +191,24 @@ export const useStore = create<State>((set, get) => ({
     set({ activeProject: path, activeDoc: null })
     void get().loadDetails(path, true)
     void get().loadHistory(path)
-    const mine = tabs.filter((t) => t.projectPath === path)
-    if (mine.length) {
-      const current = mine.find((t) => t.id === get().activeTabId)
-      set({ activeTabId: current?.id ?? mine[mine.length - 1].id })
+    // Só conta aba com processo de pé: aba suspensa (restaurada) ou encerrada não vale como
+    // "sessão do projeto", senão clicar no projeto cairia na tela de "Retomar sessão".
+    const vivas = tabs.filter((t) => t.projectPath === path && !t.suspended && t.exited == null)
+    if (vivas.length) {
+      const atual = vivas.find((t) => t.id === get().activeTabId)
+      set({ activeTabId: atual?.id ?? vivas[vivas.length - 1].id })
     } else if (config?.autoOpenClaude) {
-      await get().openClaude(path)
+      if (abrindo.has(path)) return
+      abrindo.add(path)
+      try {
+        await get().openClaude(path)
+      } finally {
+        abrindo.delete(path)
+      }
     } else {
-      set({ activeTabId: null })
+      // sem abertura automática, ao menos mostra a aba que existe (suspensa/encerrada)
+      const qualquer = tabs.filter((t) => t.projectPath === path)
+      set({ activeTabId: qualquer[qualquer.length - 1]?.id ?? null })
     }
   },
 

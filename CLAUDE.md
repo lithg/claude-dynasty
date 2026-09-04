@@ -161,7 +161,16 @@ As abas abertas são gravadas em `%APPDATA%/claude-dynasty/tabs.json` (a cada sp
 `before-quit`). Ao abrir, elas voltam **suspensas**: aparecem na barra com `(suspensa)`, sem
 processo. "Retomar" chama `pty:resume`, que faz `claude --resume <sessionId>` se o transcript ainda
 existir em `~/.claude/projects/<slug>/` (`transcriptExists`) ou abre sessão nova na mesma pasta.
-Nada é spawnado sozinho — importante porque o app sobe junto com o Windows. Config: `restoreTabs`.
+Nada é spawnado sozinho na abertura — importante porque o app sobe junto com o Windows. Config:
+`restoreTabs`.
+
+## Clicar num projeto abre sessão nova
+`selectProject` só considera aba **com processo de pé** (`!suspended && exited == null`): se houver
+uma, vai para ela (alternar entre projetos não abre sessão atrás de sessão); se não houver, abre
+uma **sessão nova** (`autoOpenClaude`). Aba suspensa da execução anterior ou encerrada **não conta**
+— senão clicar no projeto caía na tela de "Retomar sessão", que não é o padrão que se quer. Elas
+continuam na barra de abas, para retomar à mão quando você quiser. Um `Set` de caminhos (`abrindo`)
+evita que dois cliques rápidos abram duas sessões.
 
 ## Uma caixa só (a do Claude)
 O wrapper **não** tem mais caixa de prompt própria (o antigo `PromptBox`, config `promptBox`):
