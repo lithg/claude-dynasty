@@ -132,7 +132,8 @@ export const useStore = create<State>((set, get) => ({
   paletteOpen: false,
   lightbox: null,
   firstRun: false,
-  panelOpen: true,
+  // painel do projeto começa fechado: quem abre o app quer o terminal, não a ficha do projeto
+  panelOpen: false,
   showHidden: false,
   filter: '',
 

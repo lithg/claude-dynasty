@@ -173,11 +173,12 @@ flutuante** sobre o terminal: barra com o nome (arrasta), canto para redimension
 cheia e de fechar. O clique na imagem abre o `ImageLightbox` (zoom com roda/+/−, arrastar, ←/→
 entre as imagens da aba, copiar caminho, abrir na pasta, abrir fora, Esc fecha). Detalhes que doem
 se mexer:
-- **Não use `registerDecoration`.** O TUI do Claude roda no **buffer alternativo**
-  (`buffer.active.type === 'alternate'`) e o xterm força `display:none` em toda decoration
-  enquanto ele está ativo — marker e decoration nascem, nascem **invisíveis**. Foi exatamente
-  isso que segurou a primeira versão. A camada é nossa: um `<div class="term-card-camada">`
-  absoluto dentro do `.term-host` (que por isso é `position: relative`).
+- **Não use `registerDecoration`.** Com `"tui": "fullscreen"` (o renderizador do Claude Code, ver
+  abaixo) o terminal roda no **buffer alternativo** e o xterm força `display:none` em toda
+  decoration enquanto ele está ativo — marker e decoration nascem, nascem **invisíveis**. Foi
+  exatamente isso que segurou a primeira versão. A camada é nossa: um `<div class="term-card-camada">`
+  absoluto dentro do `.term-host` (que por isso é `position: relative`). Vale para os dois modos,
+  então não dá para "voltar" para decoration mesmo em `tui: default`.
 - **Não ancore na linha.** Já foi, e ficou ruim: duas imagens em linhas vizinhas empilhavam uma
   sobre a outra; o cartão caía na margem direita do terminal, que é onde o TUI desenha o painel de
   `/diff`; e em janela pequena ia parar embaixo da barra do prompt. A área livre depende do que o
@@ -217,6 +218,16 @@ se mexer:
   debounce: o TUI escreve em rajada, e um debounce ficaria se reiniciando sem nunca disparar.
   Medido: **0,62 ms** por varredura em 400 linhas.
 - Rolar só reposiciona (`viewportY`), não revarre.
+
+> **`tui` do Claude Code, não do wrapper.** `~/.claude/settings.json` tem `"tui"`, com
+> `default` ou `fullscreen` (comando `/tui` na sessão). Em `fullscreen` ele desenha o painel de
+> diff à direita ("No changes this session", escondível com `/diff`) e usa o **buffer alternativo**
+> — o que zera a rolagem do xterm e a utilidade do Ctrl+F, porque o TUI passa a fazer a própria
+> rolagem. Nada disso é do wrapper: procurar "No changes this session" no `src/` não acha nada.
+
+## Painel do projeto
+Começa **fechado** (`panelOpen: false`): abrir o app é para trabalhar no terminal, não para ler a
+ficha do projeto. Ctrl+B abre e fecha. O estado não é gravado de propósito — sempre abre fechado.
 
 ## Abas restauradas
 As abas abertas são gravadas em `%APPDATA%/claude-dynasty/tabs.json` (a cada spawn/kill/exit e no
