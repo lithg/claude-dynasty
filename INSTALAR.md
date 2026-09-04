@@ -69,7 +69,11 @@ Windows` em Configurações. Ele escreve/apaga a chave
 ## 5. Conferir se ficou de pé
 
 - A barra da esquerda lista as pastas do diretório escolhido.
-- Clicar num projeto abre uma aba com o Claude rodando naquela pasta.
+- Clicar num projeto abre a **página dele** — `CLAUDE.md` renderizado, estado do git, sessões e
+  histórico —, e é de lá que você abre uma sessão. Nada é aberto sozinho.
+- Clicar em **Abrir sessão do Claude** sobe o terminal na pasta do projeto. A janela fica presa
+  por um instante enquanto o terminal nasce (com aviso de carregando na tela): é o ConPTY subindo,
+  e é esperado.
 - O topo mostra o consumo (5h / semanal) da conta logada.
 - A bandeja tem o ícone com a % do limite; clique esquerdo abre o popup.
 - Fechar a janela esconde na bandeja; sair de verdade é pelo menu do ícone.
@@ -92,7 +96,30 @@ git pull
 pnpm install
 pnpm build
 ```
-E reabra o app (bandeja → Sair → atalho). As abas abertas voltam suspensas e retomam com um clique.
+
+Não precisa fechar e abrir na mão: no **menu do ícone da bandeja** (botão direito) tem
+**"Reiniciar o app"**, que passa pelo encerramento normal — as abas são gravadas e voltam
+suspensas, prontas para retomar com um clique.
+
+## 8. Fazer suas próprias mudanças
+
+O app é seu; mexer nele é parte da graça. Dá para abrir uma sessão do Claude **na pasta do próprio
+wrapper**, pedir uma mudança e ver o resultado sem perder as sessões que estão abertas.
+
+Depois de um `pnpm build`, escolha no menu da bandeja:
+
+| Item | Quando usar | O que acontece |
+|---|---|---|
+| **Recarregar a interface** | mudou `src/renderer` ou `src/preload` | recarrega só a janela. Os terminais vivem no processo principal, então **as sessões do Claude continuam de pé**. Perde só o histórico visual das abas. |
+| **Reiniciar o app** | mudou `src/main` | reinício completo. As abas voltam suspensas e retomam com um clique. |
+
+Rode `pnpm typecheck` antes de commitar. E leia o **`CLAUDE.md`** do repo antes de mexer no
+terminal ou nas imagens: ele guarda as armadilhas já pagas (o TUI do Claude quebra caminhos no meio
+da palavra, `registerDecoration` some no buffer alternativo, `trimRight` não corta espaço escrito
+pelo TUI). É esse arquivo que dá contexto ao Claude quando você pedir mudanças a ele.
+
+Se quebrar tudo: `git checkout .` e `pnpm build` de novo. Sua configuração e suas abas ficam em
+`%APPDATA%\claude-dynasty`, fora do repo, então não se perdem.
 
 ## Problemas comuns
 

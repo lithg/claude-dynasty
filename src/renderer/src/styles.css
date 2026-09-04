@@ -1693,3 +1693,239 @@ button {
 .lightbox-nav.dir {
   right: 12px;
 }
+
+/* ---------- página inicial do projeto ---------- */
+/* É a "casa" de um projeto sem sessão aberta: status, ações e o CLAUDE.md renderizado.
+   Clicar num projeto não abre mais nada sozinho — quem escolhe é o usuário, daqui. */
+.home {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.home-rolo {
+  height: 100%;
+  overflow-y: auto;
+  padding: 26px 30px 40px;
+  max-width: 1100px;
+}
+
+.home.vazio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-nada {
+  text-align: center;
+  max-width: 420px;
+}
+
+.home-nada-titulo {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.home-titulo-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.home-titulo {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.home-caminho {
+  display: block;
+  margin-top: 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.home-caminho:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.home-resumo {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  max-width: 70ch;
+}
+
+/* faixa de status: git, working tree, sessões */
+.home-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 0;
+}
+
+.home-status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  min-width: 104px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.home-status-rotulo {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.home-status-valor {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.home-status-valor.ok {
+  color: var(--ok);
+}
+
+.home-status-valor.warn {
+  color: var(--warn);
+}
+
+.home-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 0;
+}
+
+.btn.primario {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.btn.primario:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.home-sec {
+  margin-top: 28px;
+}
+
+.home-sec-titulo {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.home-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.home-lista li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-2);
+}
+
+.home-lista li + li {
+  border-top: 1px solid var(--border);
+}
+
+.home-lista-nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.home-md {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-2);
+  padding: 6px 18px 14px;
+}
+
+.home-sem-md {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* aviso enquanto o spawn bloqueia o processo principal */
+.home-carregando {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 45%);
+  backdrop-filter: blur(2px);
+}
+
+.home-carregando-caixa {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 22px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 45%);
+}
+
+.home-carregando-titulo {
+  font-weight: 600;
+}
+
+/* só transform: a regra de performance do projeto vale aqui (ver CLAUDE.md) */
+.rodela {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: rodar 0.7s linear infinite;
+}
+
+@keyframes rodar {
+  to {
+    transform: rotate(360deg);
+  }
+}

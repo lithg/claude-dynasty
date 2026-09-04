@@ -241,13 +241,27 @@ existir em `~/.claude/projects/<slug>/` (`transcriptExists`) ou abre sessão nov
 Nada é spawnado sozinho na abertura — importante porque o app sobe junto com o Windows. Config:
 `restoreTabs`.
 
-## Clicar num projeto abre sessão nova
-`selectProject` só considera aba **com processo de pé** (`!suspended && exited == null`): se houver
-uma, vai para ela (alternar entre projetos não abre sessão atrás de sessão); se não houver, abre
-uma **sessão nova** (`autoOpenClaude`). Aba suspensa da execução anterior ou encerrada **não conta**
-— senão clicar no projeto caía na tela de "Retomar sessão", que não é o padrão que se quer. Elas
-continuam na barra de abas, para retomar à mão quando você quiser. Um `Set` de caminhos (`abrindo`)
-evita que dois cliques rápidos abram duas sessões.
+## Página do projeto (e nada abre sozinho)
+`selectProject` **nunca** abre sessão: vai para uma aba com processo de pé (`!suspended &&
+exited == null`) se houver, senão deixa `activeTabId: null` e o `ProjectHome` toma a área central.
+Aba suspensa ou encerrada não conta como sessão — senão clicar no projeto caía na tela de "Retomar".
+
+`ProjectHome` é a casa do projeto: título e apelido, caminho clicável, resumo do `CLAUDE.md`, faixa
+de status (branch, working tree, à frente/atrás, último commit, sessões vivas), as ações (abrir
+sessão, continuar a última, shell, Explorer, VS Code), as sessões desta pasta (vivas e suspensas) e
+o histórico com **retomar**, e por último o `CLAUDE.md` inteiro renderizado com `lib/markdown.ts`
+(classe `.markdown`, a mesma do `DocView`).
+
+O `autoOpenClaude` **foi removido** (config, tipo e checkbox): virou letra morta quando o clique
+deixou de abrir sessão, e um checkbox que não faz nada é pior do que nenhum.
+
+### O congelamento ao abrir sessão
+`node-pty` sobe o ConPTY **bloqueando o processo principal**, então a janela trava por um instante
+— isso não tem como sumir sem tornar o spawn assíncrono no main. O que dá para fazer é avisar: o
+estado `abrindo: string[]` (reativo, na store) põe o overlay com a rodela na tela. A pegadinha é
+que `set()` seguido do IPC não pinta nada: o `pintar()` da store espera **dois** `requestAnimationFrame`
+antes de chamar o spawn, senão o spinner só apareceria depois do congelamento — ou seja, nunca.
+Vale para `openClaude`, `openShell` e `resumeTab`.
 
 ## Uma caixa só (a do Claude)
 O wrapper **não** tem mais caixa de prompt própria (o antigo `PromptBox`, config `promptBox`):

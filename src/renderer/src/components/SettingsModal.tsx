@@ -50,12 +50,6 @@ export default function SettingsModal(): React.JSX.Element | null {
             usar <code>--dangerously-skip-permissions</code> por padrão
           </label>
 
-          <span>ao clicar</span>
-          <label className="check">
-            <input type="checkbox" checked={draft.autoOpenClaude} onChange={(e) => set({ autoOpenClaude: e.target.checked })} />
-            abrir o Claude automaticamente se o projeto não tiver aba
-          </label>
-
           <span>notificar</span>
           <label className="check">
             <input type="checkbox" checked={draft.notifyOnIdle} onChange={(e) => set({ notifyOnIdle: e.target.checked })} />

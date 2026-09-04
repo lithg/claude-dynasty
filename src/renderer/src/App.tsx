@@ -10,6 +10,7 @@ import TabBar from './components/TabBar'
 import TerminalView from './components/TerminalView'
 import SuggestChip from './components/SuggestChip'
 import ImageLightbox from './components/ImageLightbox'
+import ProjectHome from './components/ProjectHome'
 import ProjectPanel from './components/ProjectPanel'
 import SettingsModal from './components/SettingsModal'
 import CommandPalette from './components/CommandPalette'
@@ -65,7 +66,6 @@ function Main(): React.JSX.Element {
   const activeDoc = useStore((s) => s.activeDoc)
   const activeProject = useStore((s) => s.activeProject)
   const panelOpen = useStore((s) => s.panelOpen)
-  const projects = useStore((s) => s.projects)
   const systemDark = useSystemDark()
   const theme = useMemo(() => resolveTheme(config?.theme ?? 'dark', systemDark), [config?.theme, systemDark])
 
@@ -186,7 +186,6 @@ function Main(): React.JSX.Element {
   }, [])
 
   const activeTab = tabs.find((t) => t.id === activeTabId)
-  const project = projects.find((p) => p.path === activeProject)
   const fontFamily = theme.font ?? config?.fontFamily ?? 'Consolas, monospace'
 
   return (
@@ -231,29 +230,8 @@ function Main(): React.JSX.Element {
               </div>
             </div>
           )}
-          {!activeTab && (
-            <div className="empty-state">
-              {project ? (
-                <>
-                  <div className="empty-title">{project.name}</div>
-                  <div className="muted">Nenhuma aba aberta neste projeto.</div>
-                  <div className="row gap">
-                    <button className="btn" onClick={() => void useStore.getState().openClaude(project.path)}>
-                      Abrir Claude
-                    </button>
-                    <button className="btn ghost" onClick={() => void useStore.getState().openClaude(project.path, { continueLast: true })}>
-                      Continuar última
-                    </button>
-                    <button className="btn ghost" onClick={() => void useStore.getState().openShell(project.path)}>
-                      Shell
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="muted">Escolha um projeto na esquerda.</div>
-              )}
-            </div>
-          )}
+          {/* sem aba de pé: a página do projeto é a casa, e é dela que sai qualquer sessão */}
+          {!activeTab && <ProjectHome />}
         </div>
         {activeDoc && <DocView />}
       </main>

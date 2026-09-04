@@ -1,55 +1,98 @@
 # Claude Dynasty
 
-Painel pessoal para tocar os projetos de `~/Documents/GitHub` com o Claude Code sem abrir terminal
-na mão. Clica no projeto → sessão `claude` já aberta na pasta, com `--dangerously-skip-permissions`
-(opcional, global ou por projeto).
+Painel desktop (Windows) para tocar os seus projetos com o **Claude Code** sem abrir terminal na
+mão. Lista as pastas de um diretório de projetos, mostra a ficha de cada um e abre sessões do
+`claude` num terminal embutido — com histórico, git, consumo da conta e bandeja.
 
 Instalando em outra máquina? Veja **[INSTALAR.md](INSTALAR.md)** — está escrito para você colar no
 Claude Code e deixar ele montar.
 
 ## Rodar
-```
+
+```bash
 pnpm install
 pnpm build
-pnpm start          # ou: atalho "Claude Dynasty" (Menu Iniciar / área de trabalho) ou start.vbs
+pnpm start          # ou o atalho "Claude Dynasty" (Menu Iniciar / área de trabalho), ou start.vbs
 ```
+
 Desenvolvimento com hot reload: `pnpm dev`.
 
-## O que mostra
-- **Sidebar**: projetos (fixados no topo), bolinha verde pulsando = Claude trabalhando naquela pasta,
-  verde fixa = sessão ociosa; inclui sessões abertas fora do wrapper.
-- **Abas**: várias sessões por projeto (Claude ou PowerShell); as abas da última execução voltam
-  suspensas e retomam com `claude --resume` num clique. Os dropdowns de modelo/effort trocam o
-  modelo **da sessão aberta** (mandam `/model`) e ficam lembrados por projeto.
-- **Caixa de prompt** multi-linha embaixo: Enter quebra linha, Ctrl+Enter envia, ↑ traz o histórico,
-  Ctrl+V cola imagem, Esc volta ao terminal e Ctrl+I volta para a caixa.
-- **Ctrl+F**: busca no terminal com contador de ocorrências; **Ctrl+Shift+L** limpa e redesenha o
-  terminal quando alguma saída de fora suja a tela.
-- **Ctrl + roda do mouse** dá zoom só no terminal daquele projeto (não na UI toda), e o tamanho
-  fica salvo para a próxima vez que você abrir o projeto.
-- **Ctrl+K**: paleta para pular entre sessões abertas e projetos só com o teclado (Ctrl+1..9 vai
-  direto para a aba n; Ctrl+0 pula para a próxima sessão que ficou ociosa).
-- **Shift+Enter** e **Shift+Espaço** quebram linha em vez de enviar, como no Warp.
-- **Sugestão de resposta**: quando o Claude termina, a resposta provável aparece sozinha na caixa
-  como placeholder apagadinho — **Tab** escreve de verdade, Esc descarta e nada é enviado sem
-  Ctrl+Enter (**Ctrl+Espaço** pede uma sugestão na hora). Roda um `claude -p` com Haiku por resposta; desligável nas configurações.
-- **Painel direito**: git (branch, sujo, último commit), sessões vivas, infos do `CLAUDE.md`
-  (resumo, URLs, comandos SSH para copiar), scripts do `package.json` (rodam num shell),
-  opções por projeto e histórico de sessões com **retomar** (`claude --resume`).
-- **Topo**: consumo 5h / semanal da conta (mesma API do `/usage`), tema dark/light/system.
-- **Bandeja** (substitui o Usage Tray): ícone com anel + % do limite mais alto; clique = popup de
-  consumo, botão direito = abrir o wrapper / sair; inicia com o Windows escondido na bandeja.
-- **Abas**: "+" abre outra sessão no mesmo projeto; dropdowns de modelo/effort lembrados por projeto;
-  badge/botão **RC** mostra o Remote Control (clique = QR/desconectar, botão direito = abrir no claude.ai).
-- **Documentação**: seção própria na sidebar com documentos em markdown — cria pelo "+", edita com
-  salvamento automático, marca as caixinhas com um clique, renomeia e reordena arrastando. São
-  arquivos `.md` numa pasta ao lado dos projetos, então dá para pedir ao Claude *"edita o TODO da
-  Loja do Managol e adiciona um checklist"* e a tela atualiza sozinha.
-- **Projetos**: "+" cria uma pasta nova na raiz, botão direito renomeia (só o rótulo) e dá para
-  reordenar arrastando.
-- **Temas**: escuro, claro, sistema, Claude (laranja), Matrix, Dracula, Synthwave, Nord, Gruvbox,
-  Solarized, Monokai, âmbar retrô — mudam a UI e o terminal do Claude.
-- **Ctrl+V** cola imagem direto no Claude; arrastar arquivo cola o caminho.
-- **Inicia com o Windows** escondido na bandeja (checkbox nas configurações).
+## Como se usa
 
-Config em `%APPDATA%\claude-dynasty\config.json`.
+Clicar num projeto **não abre nada sozinho**: você cai na página dele, com o `CLAUDE.md`
+renderizado, o estado do git, as sessões vivas e o histórico. De lá você escolhe **abrir sessão**,
+**continuar a última** (`claude --continue`), **retomar** uma do histórico (`claude --resume`) ou
+abrir um shell. Enquanto o terminal sobe aparece um aviso de carregando — o `node-pty` bloqueia o
+processo principal por um instante nessa hora, e isso é esperado.
+
+## O que tem
+
+- **Sidebar**: projetos com ordem manual (arrastar), fixados no topo, apelido por projeto e
+  ocultos. A bolinha diz se há Claude trabalhando naquela pasta — inclusive sessões abertas fora
+  do wrapper.
+- **Abas**: várias sessões por projeto (Claude ou PowerShell). As abas da execução anterior voltam
+  **suspensas** e retomam com um clique. Os dropdowns de modelo e effort trocam o da **sessão
+  aberta** (mandam `/model` e `/effort`) e ficam lembrados por projeto.
+- **Imagens no terminal**: quando o Claude devolve uma imagem, o caminho vira um **cartão
+  flutuante** — arrasta pela barra, redimensiona pelo canto, clique abre em tela cheia com `←`/`→`
+  entre as imagens da aba. Posição e tamanho ficam lembrados por projeto.
+- **Sugestão de resposta**: quando o Claude termina, a resposta provável aparece numa faixa fina
+  acima do terminal; **Tab** escreve na caixa dele (nada é enviado até você apertar Enter), Esc
+  descarta. Gasta um `claude -p` com Haiku por resposta — desligável nas configurações.
+- **Documentação**: seção da sidebar com arquivos `.md` de verdade numa pasta do disco, editados
+  num editor rico dentro do app. Como são arquivos comuns, o próprio Claude pode editá-los numa
+  sessão e a mudança aparece na hora.
+- **Painel do projeto** (Ctrl+B, começa fechado): git, sessões, infos do `CLAUDE.md`, scripts do
+  `package.json`, opções por projeto e histórico.
+- **Topo**: consumo 5h / semanal da conta (mesma API do `/usage`) e tema.
+- **Bandeja**: ícone com anel e % do limite mais alto, popup de consumo, e os itens de recarregar,
+  reiniciar e sair. Fechar a janela esconde na bandeja; as sessões continuam vivas.
+
+## Atalhos
+
+| Tecla | O que faz |
+|---|---|
+| `Ctrl+T` | nova sessão do Claude no projeto ativo |
+| `Ctrl+W` | fecha a aba |
+| `Ctrl+Tab` | alterna entre as abas do projeto |
+| `Ctrl+1`…`9` | vai para a aba n · `Ctrl+0` pula para a próxima sessão ociosa |
+| `Ctrl+K` | paleta de sessões e projetos |
+| `Ctrl+B` | painel do projeto · `Ctrl+,` configurações |
+| `Ctrl+F` | busca no terminal, com contador |
+| `Shift+Enter` | quebra linha no terminal em vez de enviar |
+| `Tab` | escreve a sugestão · `Ctrl+Espaço` pede uma na hora |
+| `Ctrl+Shift+C/V` | copia e cola no terminal (`Ctrl+V` também cola imagem) |
+| `Ctrl+Shift+L` | limpa e redesenha o terminal quando algo de fora suja a tela |
+| `Ctrl+roda` | zoom só naquele terminal, lembrado por projeto |
+
+## Mexer no próprio app sem fechá-lo
+
+O app é o seu editor e a sua cobaia ao mesmo tempo — dá para abrir uma sessão do Claude **na pasta
+do próprio wrapper**, pedir uma mudança e ver o resultado sem perder as sessões abertas:
+
+```bash
+pnpm build          # gera out/
+```
+
+Depois, no **menu do ícone da bandeja** (botão direito):
+
+| Item | Quando usar | O que acontece |
+|---|---|---|
+| **Recarregar a interface** | mudou `src/renderer` ou `src/preload` | recarrega só a janela. Os PTYs vivem no processo principal, então **as sessões do Claude continuam de pé**. Perde só o histórico visual das abas, porque o terminal é remontado. |
+| **Reiniciar o app** | mudou `src/main` | reinício de verdade. Passa pelo encerramento normal, então as abas são gravadas e voltam **suspensas**, prontas para retomar com um clique. |
+
+Não precisa fechar e abrir na mão em nenhum dos dois casos. Se preferir hot reload durante o
+desenvolvimento, `pnpm dev` recarrega o renderer a cada salvamento (mas roda uma instância
+separada da que está no seu dia a dia).
+
+`pnpm typecheck` antes de commitar. O **[CLAUDE.md](CLAUDE.md)** deste repo é o mapa do projeto —
+tem as decisões e as armadilhas já pagas (por que o cartão de imagem não usa `registerDecoration`,
+por que a varredura é throttle e não debounce, o que o `tui` do Claude Code muda no terminal). Se
+você for pedir mudanças ao Claude, é ele que dá o contexto.
+
+## Limites
+
+- **Windows**. Usa ConPTY, bandeja e atalhos do Windows; não foi feito para rodar em outro sistema.
+- Uso pessoal, sem distribuição: não há instalador nem assinatura de código.
+- O app **não faz login nem mexe em credenciais** — só chama o `claude.exe` já instalado e lê o
+  que o Claude Code mantém em `~/.claude`.

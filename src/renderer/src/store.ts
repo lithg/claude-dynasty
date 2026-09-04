@@ -35,6 +35,8 @@ interface State {
   panelOpen: boolean
   showHidden: boolean
   filter: string
+  /** caminhos com sessão sendo aberta agora — é o que a página do projeto usa para o loading */
+  abrindo: string[]
 
   init: () => Promise<void>
   loadProjects: () => Promise<void>
@@ -88,8 +90,14 @@ export function projectName(path: string): string {
 
 let zoomTimer: ReturnType<typeof setTimeout> | null = null
 let cardTimer: ReturnType<typeof setTimeout> | null = null
-/** projetos com sessão sendo aberta agora: dois cliques rápidos não abrem duas sessões */
-const abrindo = new Set<string>()
+
+/**
+ * Espera o navegador pintar. O `node-pty` bloqueia o processo principal enquanto sobe o ConPTY,
+ * e sem isto o spinner só apareceria **depois** do congelamento — ou seja, nunca.
+ */
+function pintar(): Promise<void> {
+  return new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => ok())))
+}
 /** gravação adiada do documento aberto (auto save) */
 let pendente: { path: string; text: string; timer: ReturnType<typeof setTimeout> } | null = null
 
@@ -136,6 +144,7 @@ export const useStore = create<State>((set, get) => ({
   panelOpen: false,
   showHidden: false,
   filter: '',
+  abrindo: [],
 
   init: async () => {
     const [config, live, tabs, firstRun] = await Promise.all([
@@ -186,45 +195,59 @@ export const useStore = create<State>((set, get) => ({
     if ('pinned' in patch || 'hidden' in patch || 'rootDir' in patch) await get().loadProjects()
   },
 
+  /**
+   * Clicar num projeto **nunca** abre sessão: só vai para uma que já esteja de pé, senão mostra a
+   * página do projeto (`ProjectHome`), de onde você escolhe o que fazer. Antes ele spawnava o
+   * `claude` sozinho, e o `node-pty` bloqueando o processo principal travava a janela inteira sem
+   * nenhum aviso na tela.
+   */
   selectProject: async (path) => {
-    const { tabs, config } = get()
+    const { tabs } = get()
     set({ activeProject: path, activeDoc: null })
     void get().loadDetails(path, true)
     void get().loadHistory(path)
-    // Só conta aba com processo de pé: aba suspensa (restaurada) ou encerrada não vale como
-    // "sessão do projeto", senão clicar no projeto cairia na tela de "Retomar sessão".
+    // Só conta aba com processo de pé: suspensa (restaurada) ou encerrada não vale como sessão.
     const vivas = tabs.filter((t) => t.projectPath === path && !t.suspended && t.exited == null)
-    if (vivas.length) {
-      const atual = vivas.find((t) => t.id === get().activeTabId)
-      set({ activeTabId: atual?.id ?? vivas[vivas.length - 1].id })
-    } else if (config?.autoOpenClaude) {
-      if (abrindo.has(path)) return
-      abrindo.add(path)
-      try {
-        await get().openClaude(path)
-      } finally {
-        abrindo.delete(path)
-      }
-    } else {
-      // sem abertura automática, ao menos mostra a aba que existe (suspensa/encerrada)
-      const qualquer = tabs.filter((t) => t.projectPath === path)
-      set({ activeTabId: qualquer[qualquer.length - 1]?.id ?? null })
-    }
+    const atual = vivas.find((t) => t.id === get().activeTabId)
+    set({ activeTabId: atual?.id ?? vivas[vivas.length - 1]?.id ?? null })
   },
 
   openClaude: async (path, opts) => {
-    const tab = await window.api.pty.spawnClaude({ projectPath: path, ...opts })
-    set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id, activeProject: path }))
+    if (get().abrindo.includes(path)) return // dois cliques rápidos não abrem duas sessões
+    set((s) => ({ abrindo: [...s.abrindo, path] }))
+    try {
+      await pintar()
+      const tab = await window.api.pty.spawnClaude({ projectPath: path, ...opts })
+      set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id, activeProject: path }))
+    } finally {
+      set((s) => ({ abrindo: s.abrindo.filter((p) => p !== path) }))
+    }
   },
 
   openShell: async (path, command) => {
-    const tab = await window.api.pty.spawnShell({ projectPath: path, command })
-    set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id, activeProject: path }))
+    if (get().abrindo.includes(path)) return
+    set((s) => ({ abrindo: [...s.abrindo, path] }))
+    try {
+      await pintar()
+      const tab = await window.api.pty.spawnShell({ projectPath: path, command })
+      set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id, activeProject: path }))
+    } finally {
+      set((s) => ({ abrindo: s.abrindo.filter((p) => p !== path) }))
+    }
   },
 
   resumeTab: async (id) => {
-    const tab = await window.api.pty.resume(id)
-    if (tab) set((s) => ({ tabs: s.tabs.map((t) => (t.id === id ? { ...t, ...tab } : t)), activeTabId: id }))
+    const alvo = get().tabs.find((t) => t.id === id)
+    const path = alvo?.projectPath ?? id
+    if (get().abrindo.includes(path)) return
+    set((s) => ({ abrindo: [...s.abrindo, path] }))
+    try {
+      await pintar()
+      const tab = await window.api.pty.resume(id)
+      if (tab) set((s) => ({ tabs: s.tabs.map((t) => (t.id === id ? { ...t, ...tab } : t)), activeTabId: id }))
+    } finally {
+      set((s) => ({ abrindo: s.abrindo.filter((p) => p !== path) }))
+    }
   },
 
   closeTab: async (id) => {

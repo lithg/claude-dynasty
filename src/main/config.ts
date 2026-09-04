@@ -20,7 +20,6 @@ const DEFAULTS: AppConfig = {
   effort: '',
   notifyOnIdle: true,
   notifyExternal: false,
-  autoOpenClaude: true,
   closeToTray: true,
   remoteControl: false,
   restoreTabs: true,
