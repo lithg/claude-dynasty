@@ -1498,9 +1498,21 @@ button {
 }
 
 /* ---------- miniatura da imagem em cima do terminal ---------- */
-/* A decoration do xterm não empurra texto: este cartão é opaco de propósito, para o que fica
-   por baixo não vazar. Sem animação — a regra de performance do projeto vale aqui também. */
+/* Camada nossa dentro do .xterm-screen: a decoration do xterm ganha display:none no buffer
+   alternativo, que é onde o TUI do Claude roda. Posicionada na mão pelo TerminalView. */
+.term-img-camada {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Nada empurra texto no terminal: o cartão é opaco de propósito, para o que fica por baixo não
+   vazar. Sem animação — a regra de performance do projeto vale aqui também. */
 .term-img {
+  position: absolute;
+  pointer-events: auto;
   box-sizing: border-box;
   padding: 2px;
   border: 1px solid var(--border);

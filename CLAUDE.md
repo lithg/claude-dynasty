@@ -168,12 +168,21 @@ Quando o Claude devolve uma imagem, o que chega no PTY é **texto** — o caminh
 Sixel / iTerm2 IIP / Kitty, então o `@xterm/addon-image` não teria o que renderizar: quem resolve
 é o wrapper. Config `inlineImages` (ligada).
 
-`lib/imagePaths.ts` varre o buffer do xterm atrás de caminhos e `TerminalView` ancora uma
-**decoration** (13×6 células, encostada na margem direita) na linha onde o caminho termina; o
-clique abre o `ImageLightbox` (zoom com roda/+/−, arrastar, ←/→ entre as imagens da aba, copiar
-caminho, abrir na pasta, abrir fora, Esc fecha). Detalhes que doem se mexer:
-- **Decoration não empurra texto** — o xterm não reflui linhas. A miniatura é um cartão **opaco**
-  sobreposto, senão o texto de baixo vaza. Por isso fica na margem direita, onde sobra espaço.
+`lib/imagePaths.ts` varre o buffer do xterm atrás de caminhos e `TerminalView` desenha um cartão
+(13×6 células, encostado na margem direita) na linha onde o caminho termina; o clique abre o
+`ImageLightbox` (zoom com roda/+/−, arrastar, ←/→ entre as imagens da aba, copiar caminho, abrir
+na pasta, abrir fora, Esc fecha). Detalhes que doem se mexer:
+- **Não use `registerDecoration`.** O TUI do Claude roda no **buffer alternativo**
+  (`buffer.active.type === 'alternate'`) e o xterm força `display:none` em toda decoration
+  enquanto ele está ativo — marker e decoration nascem, nascem **invisíveis**. Foi exatamente
+  isso que segurou a primeira versão. A camada é nossa: um `<div class="term-img-camada">`
+  absoluto dentro do `.xterm-screen`, posicionado na mão.
+- A **célula** sai de `.xterm-screen`: `clientWidth / cols` e `clientHeight / rows`. Bate exatamente
+  com o que a decoration do xterm usava (conferido: 8,25 × 18 px).
+- O cartão **não empurra texto** — nada empurra texto no xterm. É opaco de propósito, senão o que
+  fica embaixo vaza, e por isso mora na margem direita, onde sobra espaço.
+- Cartão é chaveado pelo **caminho**, não por marker: no buffer alternativo a "linha" é só a
+  posição na tela e o TUI reescreve tudo o tempo todo. Cada varredura reconcilia a lista.
 - O caminho **não vem numa linha só**: o TUI quebra no meio da palavra e ainda indenta a
   continuação (`…\scr` + `    atchpad\ficha.png`). Não é wrap do xterm — `isWrapped` é **false** —,
   então a colagem é na mão, até 3 linhas, e só quando a linha parece cortada no meio de um caminho.
@@ -188,10 +197,11 @@ caminho, abrir na pasta, abrir fora, Esc fecha). Detalhes que doem se mexer:
   separada: numa alternativa só, a versão sem espaço casaria primeiro na mesma posição e a com
   espaço nunca rodaria — o sintoma era achar só `Claude\src\…\logo.png` e não encontrar o arquivo.
 - `~\…` é expandido no main (`homedir()`), que é como o Claude escreve o caminho.
-- Varredura: só a volta do que está na tela (±150 linhas), debounce de 400 ms em `onWriteParsed` /
-  `onScroll`, parada quando `document.hidden`. Medido: **0,62 ms** por varredura em 400 linhas.
-- Decoration ganha `display:none` no **buffer alternativo** (quem roda `vim` na aba não vê
-  miniatura) — comportamento do próprio xterm, e é o certo.
+- Varredura: só a volta do que está na tela (±150 linhas), **throttle** de 400 ms em
+  `onWriteParsed` / `onScroll` / `onResize`, parada quando `document.hidden`. Throttle e não
+  debounce: o TUI escreve em rajada, e um debounce ficaria se reiniciando sem nunca disparar.
+  Medido: **0,62 ms** por varredura em 400 linhas.
+- Rolar só reposiciona (`viewportY`), não revarre.
 
 ## Abas restauradas
 As abas abertas são gravadas em `%APPDATA%/claude-dynasty/tabs.json` (a cada spawn/kill/exit e no

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Terminal, type IDecoration } from '@xterm/xterm'
+import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
@@ -15,7 +15,7 @@ const MINI_COLS = 13
 const MINI_ROWS = 6
 /** Quantas linhas fora da tela a varredura olha, para a miniatura já estar pronta ao rolar. */
 const MARGEM = 150
-/** Debounce da varredura: o TUI redesenha muito, não adianta varrer a cada escrita. */
+/** Throttle da varredura: o TUI redesenha muito, não adianta varrer a cada escrita. */
 const ESPERA = 400
 
 /** Uma pergunta por caminho: o `null` (não existe / não é imagem) também fica guardado. */
@@ -275,14 +275,24 @@ export default function TerminalView({
    *
    * O Claude Code não emite Sixel/iTerm2/Kitty: o que chega no PTY é texto, não há imagem para o
    * xterm renderizar (por isso o @xterm/addon-image não resolveria). A varredura acha o caminho
-   * no buffer e ancora uma decoration na linha onde ele termina.
+   * no buffer e desenha um cartão por cima da linha onde ele termina.
    *
-   * Decoration **não empurra texto** — o xterm não reflui linhas —, então a miniatura é um cartão
-   * opaco sobreposto, encostado na margem direita, que é onde quase sempre sobra espaço.
+   * **Por que não usa `registerDecoration`:** o TUI do Claude roda no **buffer alternativo**
+   * (medido: `buffer.active.type === 'alternate'`), e o xterm força `display:none` em toda
+   * decoration enquanto o buffer alternativo está ativo. O marker e a decoration até nasciam —
+   * nasciam invisíveis. Então a camada é nossa, um `<div>` absoluto dentro do `.xterm-screen`,
+   * posicionado na mão a partir do tamanho da célula.
+   *
+   * A célula sai de `.xterm-screen`: `clientWidth / cols` e `clientHeight / rows` batem exatamente
+   * com o que a própria decoration do xterm usa (conferido: 8,25 × 18 px).
+   *
+   * O cartão é **opaco** e fica encostado na margem direita: nada empurra o texto do terminal,
+   * então ele cobre o que estiver embaixo, e à direita é onde quase sempre sobra espaço.
    */
   useEffect(() => {
     const term = termRef.current
-    if (!term) return
+    const host = ref.current
+    if (!term || !host) return
     if (!inlineImages) {
       setImagens(tab.id, [])
       return
@@ -290,19 +300,90 @@ export default function TerminalView({
     const cwd = tab.projectPath
     // DIAGNÓSTICO TEMPORÁRIO → %APPDATA%/claude-dynasty/miniaturas.log
     const diag = (txt: string): void => window.api.images.log(`[${tab.id.slice(0, 4)}] ${txt}`)
-    diag(`efeito iniciado inlineImages=${inlineImages} cwd=${cwd}`)
-    /** `path` é o caminho cru do terminal (chaveia a varredura); `real` é o resolvido pelo main. */
-    const vivas: { deco: IDecoration; path: string; real: string }[] = []
+
+    interface Cartao {
+      el: HTMLDivElement
+      /** linha absoluta no buffer onde o caminho termina */
+      linha: number
+      /** caminho já resolvido pelo main (é o que o lightbox abre) */
+      real: string
+    }
+    /** chaveado pelo caminho cru do terminal; a última ocorrência na tela é a que vale */
+    const cartoes = new Map<string, Cartao>()
+    let camada: HTMLDivElement | null = null
     let timer: ReturnType<typeof setTimeout> | null = null
     let rodando = false
     let morto = false
     let ultimoDiag = 0
 
+    const tela = (): HTMLElement | null =>
+      (term.element?.querySelector('.xterm-screen') as HTMLElement | null) ?? null
+
+    /** Tamanho da célula em px. null quando a aba está escondida (largura zero). */
+    const celula = (): { w: number; h: number } | null => {
+      const t = tela()
+      if (!t || !term.cols || !term.rows) return null
+      const w = t.clientWidth / term.cols
+      const h = t.clientHeight / term.rows
+      return w > 0 && h > 0 ? { w, h } : null
+    }
+
+    const pegarCamada = (): HTMLDivElement | null => {
+      const t = tela()
+      if (!t) return null
+      if (!camada || !camada.isConnected) {
+        camada = document.createElement('div')
+        camada.className = 'term-img-camada'
+        t.appendChild(camada)
+      }
+      return camada
+    }
+
+    const posicionar = (): void => {
+      const cel = celula()
+      if (!cel) return
+      const vy = term.buffer.active.viewportY
+      for (const c of cartoes.values()) {
+        const y = c.linha - vy
+        if (y < 0 || y >= term.rows) {
+          c.el.style.display = 'none'
+          continue
+        }
+        c.el.style.display = 'block'
+        c.el.style.top = `${Math.round(y * cel.h)}px`
+        c.el.style.right = `${Math.round(cel.w)}px`
+        c.el.style.width = `${Math.round(MINI_COLS * cel.w)}px`
+        c.el.style.height = `${Math.round(MINI_ROWS * cel.h)}px`
+      }
+    }
+
     const publicar = (): void =>
       setImagens(
         tab.id,
-        [...vivas].sort((a, b) => a.deco.marker.line - b.deco.marker.line).map((v) => v.real)
+        [...cartoes.values()].sort((a, b) => a.linha - b.linha).map((c) => c.real)
       )
+
+    const criar = (info: ImageThumb): HTMLDivElement => {
+      const el = document.createElement('div')
+      el.className = 'term-img'
+      const dim = info.width ? ` · ${info.width}×${info.height}` : ''
+      el.title = [info.path, `${tamanho(info.size)}${dim}`, 'clique para abrir'].join(String.fromCharCode(10))
+      const img = document.createElement('img')
+      img.src = info.thumb
+      img.draggable = false
+      el.appendChild(img)
+      // sem isto o xterm começa a selecionar o texto que está por baixo do cartão
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      })
+      el.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        useStore.getState().openLightbox(tab.id, info.path, cwd)
+      })
+      return el
+    }
 
     const varrer = async (): Promise<void> => {
       if (morto || rodando || document.hidden) return
@@ -312,85 +393,45 @@ export default function TerminalView({
         const de = Math.max(0, buf.viewportY - MARGEM)
         const ate = Math.min(buf.length - 1, buf.viewportY + term.rows + MARGEM)
         const achados = acharImagens(term, de, ate)
-        if (achados.length || Date.now() - ultimoDiag > 8000) {
+
+        // caminho repetido na tela: vale a última ocorrência
+        const desejado = new Map<string, number>()
+        for (const a of achados) desejado.set(a.path, a.linha)
+
+        if (achados.length || Date.now() - ultimoDiag > 20000) {
           ultimoDiag = Date.now()
           diag(
-            `varrer tipo=${buf.type} len=${buf.length} viewportY=${buf.viewportY} baseY=${buf.baseY} ` +
-              `cursorY=${buf.cursorY} rows=${term.rows} de=${de} ate=${ate} achados=${achados.length}`
+            `varrer tipo=${buf.type} viewportY=${buf.viewportY} rows=${term.rows} ` +
+              `achados=${achados.length} cartoes=${cartoes.size} celula=${JSON.stringify(celula())}`
           )
           for (const a of achados) diag(`  achado linha=${a.linha} path=[${a.path}]`)
         }
-        const chaves = new Set(achados.map((a) => `${a.linha}|${a.path}`))
 
-        // o TUI redesenha a área viva: caminho que sumiu da linha perde a miniatura
-        for (let i = vivas.length - 1; i >= 0; i--) {
-          const { deco, path } = vivas[i]
-          const linha = deco.marker.line
-          if (deco.marker.isDisposed || (linha >= de && linha <= ate && !chaves.has(`${linha}|${path}`))) {
-            deco.dispose()
-            vivas.splice(i, 1)
-          }
+        for (const [path, c] of cartoes) {
+          if (desejado.has(path)) continue
+          c.el.remove()
+          cartoes.delete(path)
         }
-        const jaTem = new Set(vivas.map((v) => `${v.deco.marker.line}|${v.path}`))
 
-        for (const a of achados) {
+        for (const [path, linha] of desejado) {
           if (morto) break
-          const chave = `${a.linha}|${a.path}`
-          if (jaTem.has(chave)) continue
-          if (cacheThumb.get(`${cwd}|${a.path}`) === null) {
-            diag(`  pulado (cache null) ${a.path}`)
-            continue // já perguntamos: não existe
-          }
-          const info = await miniatura(a.path, cwd)
-          diag(`  thumb ${a.path} -> ${info ? `ok ${info.width}x${info.height}` : 'NULL'}`)
-          if (!info || morto) continue
-          const b = term.buffer.active
-          const off = a.linha - (b.baseY + b.cursorY)
-          const marker = term.registerMarker(off)
-          diag(`  marker off=${off} -> ${marker ? `linha ${marker.line}` : 'UNDEFINED'}`)
-          if (!marker) continue
-          const deco = term.registerDecoration({
-            marker,
-            anchor: 'right',
-            x: 1,
-            width: MINI_COLS,
-            height: MINI_ROWS
-          })
-          diag(`  decoration -> ${deco ? 'criada' : 'UNDEFINED'}`)
-          if (!deco) {
-            marker.dispose()
+          const existente = cartoes.get(path)
+          if (existente) {
+            existente.linha = linha
             continue
           }
-          vivas.push({ deco, path: a.path, real: info.path })
-          jaTem.add(chave)
-          deco.onRender((el) => {
-            if (el.dataset.pronto) return
-            el.dataset.pronto = '1'
-            el.classList.add('term-img')
-            const dim = info.width ? ` · ${info.width}×${info.height}` : ''
-            el.title = `${info.path}\n${tamanho(info.size)}${dim}\nclique para abrir`
-            const img = document.createElement('img')
-            img.src = info.thumb
-            img.draggable = false
-            el.appendChild(img)
-            const r = el.getBoundingClientRect()
-            diag(
-              `  onRender display=${getComputedStyle(el).display} top=${el.style.top} right=${el.style.right} ` +
-                `w=${el.style.width} h=${el.style.height} rect=${Math.round(r.left)},${Math.round(r.top)} ` +
-                `${Math.round(r.width)}x${Math.round(r.height)}`
-            )
-            // sem isto o xterm começa a selecionar o texto que está por baixo do cartão
-            el.addEventListener('mousedown', (e) => {
-              e.preventDefault()
-              e.stopPropagation()
-            })
-            el.addEventListener('click', (e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              useStore.getState().openLightbox(tab.id, info.path, cwd)
-            })
-          })
+          if (cacheThumb.get(`${cwd}|${path}`) === null) continue // já perguntamos: não existe
+          const info = await miniatura(path, cwd)
+          if (!info || morto || cartoes.has(path)) continue
+          const cam = pegarCamada()
+          if (!cam) continue
+          const el = criar(info)
+          cam.appendChild(el)
+          cartoes.set(path, { el, linha, real: info.path })
+          diag(`  cartao criado linha=${linha} ${info.width}x${info.height} ${info.path}`)
         }
+
+        posicionar()
         publicar()
       } finally {
         rodando = false
@@ -406,7 +447,19 @@ export default function TerminalView({
         void varrer()
       }, ESPERA)
     }
-    const off = [term.onWriteParsed(agendar), term.onScroll(agendar)]
+
+    const off = [
+      term.onWriteParsed(agendar),
+      // rolar não muda o que existe, só onde desenhar: reposiciona na hora e revarre depois
+      term.onScroll(() => {
+        posicionar()
+        agendar()
+      }),
+      term.onResize(() => {
+        posicionar()
+        agendar()
+      })
+    ]
     document.addEventListener('visibilitychange', agendar)
     agendar()
 
@@ -415,8 +468,10 @@ export default function TerminalView({
       if (timer) clearTimeout(timer)
       document.removeEventListener('visibilitychange', agendar)
       for (const d of off) d.dispose()
-      for (const v of vivas) v.deco.dispose()
-      vivas.length = 0
+      for (const c of cartoes.values()) c.el.remove()
+      cartoes.clear()
+      camada?.remove()
+      camada = null
       setImagens(tab.id, [])
     }
   }, [tab.id, tab.projectPath, inlineImages])
