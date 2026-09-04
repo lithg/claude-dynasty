@@ -13,7 +13,7 @@ import {
   Tray
 } from 'electron'
 import { join, basename } from 'node:path'
-import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, unlinkSync, existsSync, appendFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, unlinkSync, existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import type { AppConfig, LiveSession, SpawnClaudeOpts, SpawnShellOpts, TermTab, UsageInfo } from '@shared/types'
@@ -480,15 +480,6 @@ function registerIpc(): void {
   ipcMain.handle('images:thumb', (_e, path: string, cwd?: string) => imageThumb(path, cwd))
   ipcMain.handle('images:full', (_e, path: string, cwd?: string) => imageFull(path, cwd))
   ipcMain.handle('images:reveal', (_e, path: string) => revealImage(path))
-  // Diagnóstico temporário da varredura de miniaturas → %APPDATA%/claude-dynasty/miniaturas.log
-  ipcMain.on('images:log', (_e, txt: string) => {
-    try {
-      appendFileSync(join(app.getPath('userData'), 'miniaturas.log'), `${new Date().toISOString()} ${txt}
-`)
-    } catch {
-      /* diagnóstico não pode derrubar nada */
-    }
-  })
   ipcMain.handle('images:open', (_e, path: string) => openImage(path))
 
   ipcMain.handle('app:openExternal', (_e, url: string) => shell.openExternal(url))

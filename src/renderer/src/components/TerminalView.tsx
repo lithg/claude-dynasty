@@ -298,8 +298,6 @@ export default function TerminalView({
       return
     }
     const cwd = tab.projectPath
-    // DIAGNÓSTICO TEMPORÁRIO → %APPDATA%/claude-dynasty/miniaturas.log
-    const diag = (txt: string): void => window.api.images.log(`[${tab.id.slice(0, 4)}] ${txt}`)
 
     interface Cartao {
       el: HTMLDivElement
@@ -314,7 +312,6 @@ export default function TerminalView({
     let timer: ReturnType<typeof setTimeout> | null = null
     let rodando = false
     let morto = false
-    let ultimoDiag = 0
 
     const tela = (): HTMLElement | null =>
       (term.element?.querySelector('.xterm-screen') as HTMLElement | null) ?? null
@@ -398,22 +395,6 @@ export default function TerminalView({
         const desejado = new Map<string, number>()
         for (const a of achados) desejado.set(a.path, a.linha)
 
-        if (achados.length || Date.now() - ultimoDiag > 20000) {
-          ultimoDiag = Date.now()
-          diag(
-            `varrer tipo=${buf.type} viewportY=${buf.viewportY} rows=${term.rows} ` +
-              `achados=${achados.length} cartoes=${cartoes.size} celula=${JSON.stringify(celula())}`
-          )
-          for (const a of achados) {
-            diag(`  achado linha=${a.linha} path=[${a.path}]`)
-            // linhas cruas em volta: é onde se vê por que a remontagem colou ou não
-            for (let y = Math.max(0, a.linha - 2); y <= a.linha; y++) {
-              const t = term.buffer.active.getLine(y)?.translateToString(true) ?? ''
-              diag(`    L${y}=<<${t.slice(0, 220)}>>`)
-            }
-          }
-        }
-
         for (const [path, c] of cartoes) {
           if (desejado.has(path)) continue
           c.el.remove()
@@ -435,7 +416,6 @@ export default function TerminalView({
           const el = criar(info)
           cam.appendChild(el)
           cartoes.set(path, { el, linha, real: info.path })
-          diag(`  cartao criado linha=${linha} ${info.width}x${info.height} ${info.path}`)
         }
 
         posicionar()

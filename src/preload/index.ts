@@ -60,8 +60,7 @@ const api = {
     thumb: (path: string, cwd?: string): Promise<ImageThumb | null> => ipcRenderer.invoke('images:thumb', path, cwd),
     full: (path: string, cwd?: string): Promise<ImageFull | null> => ipcRenderer.invoke('images:full', path, cwd),
     reveal: (path: string): Promise<void> => ipcRenderer.invoke('images:reveal', path),
-    open: (path: string): Promise<string> => ipcRenderer.invoke('images:open', path),
-    log: (txt: string): void => ipcRenderer.send('images:log', txt)
+    open: (path: string): Promise<string> => ipcRenderer.invoke('images:open', path)
   },
   app: {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke('app:openExternal', url),
