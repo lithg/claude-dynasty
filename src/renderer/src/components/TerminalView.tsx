@@ -404,7 +404,14 @@ export default function TerminalView({
             `varrer tipo=${buf.type} viewportY=${buf.viewportY} rows=${term.rows} ` +
               `achados=${achados.length} cartoes=${cartoes.size} celula=${JSON.stringify(celula())}`
           )
-          for (const a of achados) diag(`  achado linha=${a.linha} path=[${a.path}]`)
+          for (const a of achados) {
+            diag(`  achado linha=${a.linha} path=[${a.path}]`)
+            // linhas cruas em volta: é onde se vê por que a remontagem colou ou não
+            for (let y = Math.max(0, a.linha - 2); y <= a.linha; y++) {
+              const t = term.buffer.active.getLine(y)?.translateToString(true) ?? ''
+              diag(`    L${y}=<<${t.slice(0, 220)}>>`)
+            }
+          }
         }
 
         for (const [path, c] of cartoes) {

@@ -35,7 +35,13 @@ const RE_ESPACO = new RegExp(
   'gi'
 )
 
-/** Acaba com um pedaço de caminho colado no fim da linha: provável quebra do TUI. */
+/**
+ * Acaba com um pedaço de caminho colado no fim da linha: provável quebra do TUI.
+ *
+ * Já foi relaxado para "acaba no meio de qualquer token" achando que era isso que perdia a quebra
+ * no meio do nome da pasta — não era: esta versão já cobre o caso, e a relaxada custava 7× mais
+ * (4,25 ms contra 0,62 ms por varredura), porque quase toda linha de prosa passava a tentar colar.
+ */
 const CORTADO = new RegExp(String.raw`[\\/]${C}*$`)
 const COMPLETO = new RegExp(String.raw`\.(?:${EXT})$`, 'i')
 
