@@ -145,17 +145,9 @@ export const useStore = create<State>((set, get) => ({
     await get().loadProjects()
     void get().loadDocs()
     void get().refreshUsage()
-    const first = get().projects[0]
-    if (tabs.length) {
-      const t = tabs[0]
-      set({ activeTabId: t.id, activeProject: t.projectPath })
-      void get().loadDetails(t.projectPath)
-      void get().loadHistory(t.projectPath)
-    } else if (first) {
-      set({ activeProject: first.path })
-      void get().loadDetails(first.path)
-      void get().loadHistory(first.path)
-    }
+    // Nada de projeto pré-selecionado: abrir o app não escolhe trabalho por você. Antes isto
+    // caía na primeira aba restaurada (ou no primeiro projeto da lista), e dava a impressão de
+    // que um projeto qualquer "grudava" na abertura.
   },
 
   loadProjects: async () => {

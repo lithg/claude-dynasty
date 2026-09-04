@@ -288,11 +288,15 @@ export default function TerminalView({
       return
     }
     const cwd = tab.projectPath
+    // DIAGNÓSTICO TEMPORÁRIO → %APPDATA%/claude-dynasty/miniaturas.log
+    const diag = (txt: string): void => window.api.images.log(`[${tab.id.slice(0, 4)}] ${txt}`)
+    diag(`efeito iniciado inlineImages=${inlineImages} cwd=${cwd}`)
     /** `path` é o caminho cru do terminal (chaveia a varredura); `real` é o resolvido pelo main. */
     const vivas: { deco: IDecoration; path: string; real: string }[] = []
     let timer: ReturnType<typeof setTimeout> | null = null
     let rodando = false
     let morto = false
+    let ultimoDiag = 0
 
     const publicar = (): void =>
       setImagens(
@@ -308,6 +312,14 @@ export default function TerminalView({
         const de = Math.max(0, buf.viewportY - MARGEM)
         const ate = Math.min(buf.length - 1, buf.viewportY + term.rows + MARGEM)
         const achados = acharImagens(term, de, ate)
+        if (achados.length || Date.now() - ultimoDiag > 8000) {
+          ultimoDiag = Date.now()
+          diag(
+            `varrer tipo=${buf.type} len=${buf.length} viewportY=${buf.viewportY} baseY=${buf.baseY} ` +
+              `cursorY=${buf.cursorY} rows=${term.rows} de=${de} ate=${ate} achados=${achados.length}`
+          )
+          for (const a of achados) diag(`  achado linha=${a.linha} path=[${a.path}]`)
+        }
         const chaves = new Set(achados.map((a) => `${a.linha}|${a.path}`))
 
         // o TUI redesenha a área viva: caminho que sumiu da linha perde a miniatura
@@ -325,11 +337,17 @@ export default function TerminalView({
           if (morto) break
           const chave = `${a.linha}|${a.path}`
           if (jaTem.has(chave)) continue
-          if (cacheThumb.get(`${cwd}|${a.path}`) === null) continue // já perguntamos: não existe
+          if (cacheThumb.get(`${cwd}|${a.path}`) === null) {
+            diag(`  pulado (cache null) ${a.path}`)
+            continue // já perguntamos: não existe
+          }
           const info = await miniatura(a.path, cwd)
+          diag(`  thumb ${a.path} -> ${info ? `ok ${info.width}x${info.height}` : 'NULL'}`)
           if (!info || morto) continue
           const b = term.buffer.active
-          const marker = term.registerMarker(a.linha - (b.baseY + b.cursorY))
+          const off = a.linha - (b.baseY + b.cursorY)
+          const marker = term.registerMarker(off)
+          diag(`  marker off=${off} -> ${marker ? `linha ${marker.line}` : 'UNDEFINED'}`)
           if (!marker) continue
           const deco = term.registerDecoration({
             marker,
@@ -338,6 +356,7 @@ export default function TerminalView({
             width: MINI_COLS,
             height: MINI_ROWS
           })
+          diag(`  decoration -> ${deco ? 'criada' : 'UNDEFINED'}`)
           if (!deco) {
             marker.dispose()
             continue
@@ -354,6 +373,12 @@ export default function TerminalView({
             img.src = info.thumb
             img.draggable = false
             el.appendChild(img)
+            const r = el.getBoundingClientRect()
+            diag(
+              `  onRender display=${getComputedStyle(el).display} top=${el.style.top} right=${el.style.right} ` +
+                `w=${el.style.width} h=${el.style.height} rect=${Math.round(r.left)},${Math.round(r.top)} ` +
+                `${Math.round(r.width)}x${Math.round(r.height)}`
+            )
             // sem isto o xterm começa a selecionar o texto que está por baixo do cartão
             el.addEventListener('mousedown', (e) => {
               e.preventDefault()
@@ -372,9 +397,14 @@ export default function TerminalView({
       }
     }
 
+    // Throttle, não debounce: `onWriteParsed` dispara a cada escrita e o TUI do Claude escreve
+    // em rajada, então um debounce ficaria se reiniciando e a varredura nunca rodaria.
     const agendar = (): void => {
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(() => void varrer(), ESPERA)
+      if (timer) return
+      timer = setTimeout(() => {
+        timer = null
+        void varrer()
+      }, ESPERA)
     }
     const off = [term.onWriteParsed(agendar), term.onScroll(agendar)]
     document.addEventListener('visibilitychange', agendar)
