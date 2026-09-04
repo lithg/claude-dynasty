@@ -183,8 +183,9 @@ se mexer:
   `/diff`; e em janela pequena ia parar embaixo da barra do prompt. A área livre depende do que o
   TUI está desenhando, então quem escolhe o lugar é o usuário.
 - Posição e tamanho ficam em `perProject[nome].imgCard`, gravados **ao soltar** o arrasto (não a
-  cada pixel). Cartão novo nasce nesse lugar, deslocado 28 px para cima/esquerda por cartão já
-  aberto, para dois caminhos vizinhos não nascerem um sobre o outro.
+  cada pixel). Os cartões que você não arrastou são **empilhados** a partir daí (para cima, virando
+  de coluna quando não cabe): já foi deslocamento fixo de 28 px, e com cartão de 340×240 o segundo
+  nascia atrás do primeiro — parecia que só uma imagem tinha aparecido.
 - `prender()` mantém o cartão inteiro dentro do terminal e roda também no `ResizeObserver` — sem
   isso ele some ao diminuir a janela.
 - O cartão **não empurra texto** — nada empurra texto no xterm. É opaco de propósito, senão o que

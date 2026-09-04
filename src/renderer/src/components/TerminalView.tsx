@@ -16,8 +16,8 @@ const CARD_H = 240
 const CARD_MIN = 120
 /** Margem mínima entre o cartão e a borda do terminal. */
 const BORDA = 8
-/** Deslocamento de cada cartão novo, para dois caminhos vizinhos não nascerem um sobre o outro. */
-const CASCATA = 28
+/** Folga entre dois cartões empilhados. */
+const GAP = 10
 
 export interface Caixa {
   x: number
@@ -366,6 +366,31 @@ export default function TerminalView({
       return { x: W - CARD_W - 24, y: H - CARD_H - 72, w: CARD_W, h: CARD_H }
     }
 
+    /**
+     * Lugar do k-ésimo cartão solto: empilha para cima a partir do berço e pula de coluna quando
+     * não cabe mais. Já foi um deslocamento fixo de 28 px, e com cartão de 340×240 o segundo
+     * nascia praticamente atrás do primeiro — parecia que só uma imagem tinha aparecido.
+     */
+    const vaga = (b: Caixa, k: number): Caixa => {
+      const passoY = b.h + GAP
+      const passoX = b.w + GAP
+      const porColuna = Math.max(1, Math.floor((b.y + b.h - BORDA) / passoY))
+      return { ...b, x: b.x - Math.floor(k / porColuna) * passoX, y: b.y - (k % porColuna) * passoY }
+    }
+
+    /** Recoloca os cartões que você não arrastou; os arrastados só são presos na borda. */
+    const arrumar = (): void => {
+      const b = berco()
+      let k = 0
+      for (const c of cartoes.values()) {
+        if (c.fixado) aplicar(c)
+        else {
+          c.box = vaga(b, k++)
+          aplicar(c)
+        }
+      }
+    }
+
     const arrastar = (c: Cartao, e: MouseEvent, modo: 'mover' | 'redim'): void => {
       e.preventDefault()
       e.stopPropagation()
@@ -480,16 +505,11 @@ export default function TerminalView({
           const info = await miniatura(path, cwd)
           if (!info || morto || cartoes.has(path)) continue
           const c = criar(info, path)
-          // cartão novo nasce deslocado para cima/esquerda: dois caminhos em linhas vizinhas
-          // empilhavam um em cima do outro na versão ancorada na linha
-          const b = berco()
-          const k = cartoes.size
-          c.box = { ...b, x: b.x - k * CASCATA, y: b.y - k * CASCATA }
           pegarCamada().appendChild(c.el)
           cartoes.set(path, c)
-          aplicar(c)
         }
 
+        arrumar()
         publicar()
       } finally {
         rodando = false
@@ -506,9 +526,7 @@ export default function TerminalView({
       }, ESPERA)
     }
 
-    const recolocar = (): void => {
-      for (const c of cartoes.values()) aplicar(c)
-    }
+    const recolocar = (): void => arrumar()
 
     const off = [
       term.onWriteParsed(agendar),
