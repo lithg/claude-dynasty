@@ -229,6 +229,14 @@ se mexer:
 > — o que zera a rolagem do xterm e a utilidade do Ctrl+F, porque o TUI passa a fazer a própria
 > rolagem. Nada disso é do wrapper: procurar "No changes this session" no `src/` não acha nada.
 
+## Conferir a interface por captura
+`scripts/print-janela.ps1` salva um PNG da janela para o Claude olhar o próprio resultado em vez de
+perguntar "apareceu?". Usa **`PrintWindow` com `PW_RENDERFULLCONTENT` (flag 2)**, não captura de
+tela: pega a janela atrás de outras e sem roubar o foco. Sem a flag 2 a imagem sai **preta**, porque
+a janela do Electron é composta pela GPU; e com a janela **minimizada** o Windows devolve 160×28 —
+o script detecta e avisa em vez de salvar lixo. Captura de tela cheia não serve: pega o que estiver
+por cima.
+
 ## Painel do projeto
 Começa **fechado** (`panelOpen: false`): abrir o app é para trabalhar no terminal, não para ler a
 ficha do projeto. Ctrl+B abre e fecha. O estado não é gravado de propósito — sempre abre fechado.

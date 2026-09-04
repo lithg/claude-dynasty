@@ -85,6 +85,16 @@ Não precisa fechar e abrir na mão em nenhum dos dois casos. Se preferir hot re
 desenvolvimento, `pnpm dev` recarrega o renderer a cada salvamento (mas roda uma instância
 separada da que está no seu dia a dia).
 
+Para conferir uma mudança de interface sem descrever a tela na mão:
+
+```bash
+pwsh -File scripts/print-janela.ps1        # PNG em %TEMP%\claude-dynasty-print.png
+```
+
+Ele usa `PrintWindow`, não captura de tela: pega a janela mesmo atrás de outras e **sem roubar o
+foco**. Útil para pedir ao Claude que olhe o próprio resultado — só não funciona com a janela
+minimizada, e nesse caso ele avisa.
+
 `pnpm typecheck` antes de commitar. O **[CLAUDE.md](CLAUDE.md)** deste repo é o mapa do projeto —
 tem as decisões e as armadilhas já pagas (por que o cartão de imagem não usa `registerDecoration`,
 por que a varredura é throttle e não debounce, o que o `tui` do Claude Code muda no terminal). Se
