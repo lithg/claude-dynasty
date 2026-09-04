@@ -183,6 +183,11 @@ na pasta, abrir fora, Esc fecha). Detalhes que doem se mexer:
   fica embaixo vaza, e por isso mora na margem direita, onde sobra espaço.
 - Cartão é chaveado pelo **caminho**, não por marker: no buffer alternativo a "linha" é só a
   posição na tela e o TUI reescreve tudo o tempo todo. Cada varredura reconcilia a lista.
+- **Apare a direita você mesmo.** O `trimRight` do `translateToString` corta *célula vazia*, não
+  espaço: o TUI preenche a linha com espaços de verdade (código 32), que contam como conteúdo e
+  sobrevivem. Sem aparar, a linha cortada no meio de um caminho termina em brancos, o `CORTADO` não
+  reconhece e a remontagem não acontece — o sintoma era o caminho longo virar só o fragmento final
+  (`uebra\imagem-….png`). Cuidado com testes: um fake que apara a direita passa e esconde o defeito.
 - O caminho **não vem numa linha só**: o TUI quebra no meio da palavra e ainda indenta a
   continuação (`…\scr` + `    atchpad\ficha.png`). Não é wrap do xterm — `isWrapped` é **false** —,
   então a colagem é na mão, até 3 linhas, e só quando a linha parece cortada no meio de um caminho.

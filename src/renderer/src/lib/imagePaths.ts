@@ -63,8 +63,14 @@ interface Pedaco {
   y: number
 }
 
+/**
+ * O `trimRight` do xterm corta **célula vazia**, não espaço: o TUI do Claude preenche a linha com
+ * espaços de verdade (código 32), que contam como conteúdo e sobrevivem. Sem aparar aqui, a linha
+ * cortada no meio de um caminho termina em brancos, o `CORTADO` não reconhece e a remontagem da
+ * linha quebrada não acontece — era isso que deixava o caminho longo virar só o fragmento final.
+ */
 function texto(term: Terminal, y: number): string {
-  return term.buffer.active.getLine(y)?.translateToString(true) ?? ''
+  return (term.buffer.active.getLine(y)?.translateToString(true) ?? '').replace(/\s+$/, '')
 }
 
 /**
