@@ -252,6 +252,14 @@ sessão, continuar a última, shell, Explorer, VS Code), as sessões desta pasta
 o histórico com **retomar**, e por último o `CLAUDE.md` inteiro renderizado com `lib/markdown.ts`
 (classe `.markdown`, a mesma do `DocView`).
 
+Detalhes visuais que já custaram uma ida e volta: `.btn` **já é preenchido** com o accent, então
+um "primário" com a mesma cor sai idêntico ao botão comum — o principal se separa pelo tamanho e o
+secundário (`.btn.secundario`) é contornado. E `.markdown` tem `max-width: 820px; margin: 0 auto`,
+que dentro da página deixava o card estreito e desalinhado do resto: `.home-md` zera os dois. O
+`CLAUDE.md` é cortado em 420 px com desvanecimento e botão de "mostrar inteiro" — o deste repo tem
+300+ linhas —, e o botão só aparece quando o texto realmente passa do corte (medido no `useEffect`
+com `scrollHeight`).
+
 O `autoOpenClaude` **foi removido** (config, tipo e checkbox): virou letra morta quando o clique
 deixou de abrir sessão, e um checkbox que não faz nada é pior do que nenhum.
 

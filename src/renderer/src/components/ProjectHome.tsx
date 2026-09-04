@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '@/store'
 import { sessionsFor } from './Sidebar'
 import { relTime, STACK_LABEL } from '@/lib/format'
@@ -24,6 +25,16 @@ export default function ProjectHome(): React.JSX.Element {
   const openShell = useStore((s) => s.openShell)
   const resumeTab = useStore((s) => s.resumeTab)
   const setActiveTab = useStore((s) => s.setActiveTab)
+  const mdRef = useRef<HTMLDivElement>(null)
+  const [mdInteiro, setMdInteiro] = useState(false)
+  const [mdCortado, setMdCortado] = useState(false)
+
+  const raw = activeProject ? details[activeProject]?.claudeMd?.raw : undefined
+  // só mostra "ver tudo" se o CLAUDE.md realmente passa da altura do corte
+  useEffect(() => {
+    const el = mdRef.current
+    setMdCortado(!!el && el.scrollHeight > el.clientHeight + 8)
+  }, [raw, mdInteiro])
 
   if (!activeProject) {
     return (
@@ -103,7 +114,7 @@ export default function ProjectHome(): React.JSX.Element {
             Abrir sessão do Claude
           </button>
           <button
-            className="btn"
+            className="btn secundario"
             disabled={carregando}
             title="claude --continue: retoma a conversa mais recente desta pasta"
             onClick={() => void openClaude(activeProject, { continueLast: true })}
@@ -186,7 +197,18 @@ export default function ProjectHome(): React.JSX.Element {
         <section className="home-sec">
           <h2 className="home-sec-titulo">CLAUDE.md</h2>
           {cmd?.raw ? (
-            <div className="home-md markdown" dangerouslySetInnerHTML={{ __html: render(cmd.raw) }} />
+            <>
+              <div
+                ref={mdRef}
+                className={`home-md markdown ${mdInteiro ? '' : 'cortado'}`}
+                dangerouslySetInnerHTML={{ __html: render(cmd.raw) }}
+              />
+              {(mdCortado || mdInteiro) && (
+                <button className="btn ghost sm home-md-mais" onClick={() => setMdInteiro(!mdInteiro)}>
+                  {mdInteiro ? 'mostrar menos' : 'mostrar o CLAUDE.md inteiro'}
+                </button>
+              )}
+            </>
           ) : (
             <div className="home-sem-md muted">
               Este projeto ainda não tem um <code>CLAUDE.md</code>. É o arquivo que o Claude Code lê
