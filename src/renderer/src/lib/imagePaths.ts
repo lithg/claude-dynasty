@@ -21,6 +21,20 @@ const RE = new RegExp(
   'gi'
 )
 
+/**
+ * Segunda passada, tolerando **espaço** no caminho — sem aspas, que é como o Claude escreve
+ * (`~\Documents\GitHub\Wrapper Claude\src\…\logo.png`). Precisa ser uma passada separada: numa
+ * alternativa só, a versão sem espaço casaria primeiro na mesma posição e esta nunca rodaria.
+ *
+ * Só com âncora absoluta e com teto de tamanho, senão a preguiçosa engoliria a frase inteira até
+ * o próximo `.png`. O que sobrar de errado morre na validação do main, e o filtro de sufixo joga
+ * fora o pedaço que a passada sem espaço achou depois do espaço.
+ */
+const RE_ESPACO = new RegExp(
+  String.raw`((?:(?<![\w:])[A-Za-z]:[\\/]|~[\\/]|(?<![:\w\\/])/)[^"'<>|*?\n]{0,200}?\.(?:${EXT}))`,
+  'gi'
+)
+
 /** Acaba com um pedaço de caminho colado no fim da linha: provável quebra do TUI. */
 const CORTADO = new RegExp(String.raw`[\\/]${C}*$`)
 const COMPLETO = new RegExp(String.raw`\.(?:${EXT})$`, 'i')
@@ -85,14 +99,16 @@ export function acharImagens(term: Terminal, de: number, ate: number): AchadoIma
 }
 
 function coletar(acc: string, pedacos: Pedaco[], out: Map<string, AchadoImagem>): void {
-  RE.lastIndex = 0
-  let m: RegExpExecArray | null
-  while ((m = RE.exec(acc))) {
-    const path = m[1] ?? m[2] ?? m[3] ?? m[4]
-    if (!path) continue
-    const ultimo = m.index + m[0].length - 1
-    const linha = (pedacos.find((p) => ultimo >= p.ini && ultimo < p.fim) ?? pedacos[pedacos.length - 1]).y
-    const chave = `${linha}|${path}`
-    if (!out.has(chave)) out.set(chave, { linha, path })
+  for (const re of [RE, RE_ESPACO]) {
+    re.lastIndex = 0
+    let m: RegExpExecArray | null
+    while ((m = re.exec(acc))) {
+      const path = m.slice(1).find((g) => g != null)
+      if (!path) continue
+      const ultimo = m.index + m[0].length - 1
+      const linha = (pedacos.find((p) => ultimo >= p.ini && ultimo < p.fim) ?? pedacos[pedacos.length - 1]).y
+      const chave = `${linha}|${path}`
+      if (!out.has(chave)) out.set(chave, { linha, path })
+    }
   }
 }

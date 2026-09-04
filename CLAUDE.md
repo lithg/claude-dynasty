@@ -176,6 +176,10 @@ caminho, abrir na pasta, abrir fora, Esc fecha). Detalhes que doem se mexer:
   uma vez.
 - Colar linha a linha acha o caminho bom **e** os pedaços dele; o filtro final descarta todo
   achado que é sufixo de outro que termina na mesma linha.
+- **Espaço no caminho** (`…\Wrapper Claude\…`, sem aspas — a pasta deste projeto!) é uma
+  **segunda passada** de regex, com âncora absoluta e teto de 200 caracteres. Tem que ser passada
+  separada: numa alternativa só, a versão sem espaço casaria primeiro na mesma posição e a com
+  espaço nunca rodaria — o sintoma era achar só `Claude\src\…\logo.png` e não encontrar o arquivo.
 - `~\…` é expandido no main (`homedir()`), que é como o Claude escreve o caminho.
 - Varredura: só a volta do que está na tela (±150 linhas), debounce de 400 ms em `onWriteParsed` /
   `onScroll`, parada quando `document.hidden`. Medido: **0,62 ms** por varredura em 400 linhas.
