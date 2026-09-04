@@ -224,11 +224,37 @@ function trayTooltip(u: UsageInfo | null): string {
   return lines.join('\n').slice(0, 127)
 }
 
+/**
+ * Recarrega só o renderer (e o preload, que roda de novo). Serve para pegar um `pnpm build` que
+ * mexeu na interface sem derrubar nada: os PTYs vivem no main, então as sessões do Claude
+ * continuam de pé. O que se perde é o **histórico visual** das abas — o xterm é remontado do
+ * zero —, mas o TUI se redesenha no primeiro resize.
+ */
+function recarregarInterface(): void {
+  showWindow()
+  win?.webContents.reloadIgnoringCache()
+}
+
+/**
+ * Reinício de verdade, para quando o build mexeu no processo principal (`src/main/*`).
+ * Passa pelo `before-quit`, que grava as abas e mata os PTYs, então as sessões voltam como abas
+ * **suspensas** (`restoreTabs`) e se retomam com um clique. O `--hidden` sai dos argumentos,
+ * senão o app reiniciaria escondido na bandeja.
+ */
+function reiniciarApp(): void {
+  app.relaunch({ args: process.argv.slice(1).filter((a) => a !== '--hidden') })
+  quitting = true
+  app.quit()
+}
+
 function trayMenu(): Menu {
   return Menu.buildFromTemplate([
     { label: 'Abrir Claude Dynasty', click: showWindow },
     { label: 'Detalhes do consumo', click: togglePopup },
-    { label: 'Atualizar agora', click: () => void refreshUsage(true) },
+    { label: 'Atualizar consumo', click: () => void refreshUsage(true) },
+    { type: 'separator' },
+    { label: 'Recarregar a interface (sessões continuam)', click: recarregarInterface },
+    { label: 'Reiniciar o app (sessões viram abas suspensas)', click: reiniciarApp },
     { type: 'separator' },
     {
       label: 'Sair',

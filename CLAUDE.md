@@ -70,7 +70,14 @@ Fechar a janela esconde na bandeja (config `closeToTray`). O ícone da bandeja �
 antigo Usage Tray (anel + número do limite mais alto, desenhado em canvas no renderer e
 enviado ao main via `tray:rendered`); clique esquerdo abre o popup de consumo (janela
 `?popup=1`, componente `TrayPopup`), botão direito tem "Abrir Claude Dynasty" / "Sair",
-duplo clique abre a janela. `--hidden` inicia só na bandeja. **Iniciar com o Windows** é a chave `HKCU\...\Run\Claude Dynasty`
+duplo clique abre a janela. `--hidden` inicia só na bandeja.
+Depois de um `pnpm build` não precisa fechar e abrir: o menu da bandeja tem **"Recarregar a
+interface"** (`reloadIgnoringCache` — pega `src/renderer` e `src/preload`, os PTYs vivem no main
+então as sessões continuam de pé; perde o histórico visual das abas, porque o xterm é remontado)
+e **"Reiniciar o app"** (`app.relaunch()` — obrigatório quando o build mexeu em `src/main`; passa
+pelo `before-quit`, então as abas voltam suspensas e se retomam com um clique). O `--hidden` é
+tirado dos argumentos do relaunch, senão o app voltaria escondido. O antigo "Atualizar agora" da
+bandeja virou **"Atualizar consumo"**, que é o que ele sempre fez. **Iniciar com o Windows** é a chave `HKCU\...\Run\Claude Dynasty`
 (escrita por `app.setLoginItemSettings` com `--hidden`), ligada/desligada no checkbox das
 configurações (`startWithWindows`). O antigo atalho em `Shell:Startup` é apagado no primeiro start
 para o app não subir duas vezes; `getLoginItemSettings()` não enxerga a própria chave no Windows,
