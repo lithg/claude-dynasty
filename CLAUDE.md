@@ -187,6 +187,10 @@ se mexer:
   cada pixel). Os cartões que você não arrastou são **empilhados** a partir daí (para cima, virando
   de coluna quando não cabe): já foi deslocamento fixo de 28 px, e com cartão de 340×240 o segundo
   nascia atrás do primeiro — parecia que só uma imagem tinha aparecido.
+- A classe `arrastando` (que corta `pointer-events` dos filhos, para o cursor não ser roubado no
+  meio do arrasto) só entra **quando o mouse anda de verdade**, e `mousedown` em cima de um botão
+  nem começa arrasto: entrando já no `mousedown`, o botão perdia o ponteiro antes do `mouseup` e o
+  clique em ×/⤢ nunca acontecia.
 - `prender()` mantém o cartão inteiro dentro do terminal e roda também no `ResizeObserver` — sem
   isso ele some ao diminuir a janela.
 - O cartão **não empurra texto** — nada empurra texto no xterm. É opaco de propósito, senão o que

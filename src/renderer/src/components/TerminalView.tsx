@@ -391,16 +391,27 @@ export default function TerminalView({
       }
     }
 
+    /**
+     * A classe `arrastando` corta o ponteiro dos filhos (`pointer-events: none`) para o cursor não
+     * ser roubado no meio do arrasto. Por isso ela só entra **quando o mouse anda de verdade**: se
+     * entrasse já no `mousedown`, o botão perdia o ponteiro antes do `mouseup` e o clique em ×/⤢
+     * nunca acontecia.
+     */
     const arrastar = (c: Cartao, e: MouseEvent, modo: 'mover' | 'redim'): void => {
       e.preventDefault()
       e.stopPropagation()
       const x0 = e.clientX
       const y0 = e.clientY
       const b0 = { ...c.box }
-      c.el.classList.add('arrastando')
+      let andou = false
       const mover = (ev: MouseEvent): void => {
         const dx = ev.clientX - x0
         const dy = ev.clientY - y0
+        if (!andou) {
+          if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return
+          andou = true
+          c.el.classList.add('arrastando')
+        }
         c.box =
           modo === 'mover' ? { ...b0, x: b0.x + dx, y: b0.y + dy } : { ...b0, w: b0.w + dx, h: b0.h + dy }
         c.fixado = true
@@ -410,8 +421,8 @@ export default function TerminalView({
         window.removeEventListener('mousemove', mover)
         window.removeEventListener('mouseup', soltar)
         c.el.classList.remove('arrastando')
-        // grava depois de soltar, não a cada pixel
-        useStore.getState().saveImgCard(cwd, c.box)
+        // grava depois de soltar, não a cada pixel — e só se saiu do lugar
+        if (andou) useStore.getState().saveImgCard(cwd, c.box)
       }
       window.addEventListener('mousemove', mover)
       window.addEventListener('mouseup', soltar)
@@ -465,7 +476,11 @@ export default function TerminalView({
 
       // o xterm começaria a selecionar texto por baixo do cartão
       el.addEventListener('mousedown', (e) => e.stopPropagation())
-      barra.addEventListener('mousedown', (e) => arrastar(c, e, 'mover'))
+      // clique nos botões não é arrasto: sem esta guarda o `mousedown` deles subia para a barra
+      barra.addEventListener('mousedown', (e) => {
+        if ((e.target as HTMLElement).closest('.term-card-btn')) return
+        arrastar(c, e, 'mover')
+      })
       canto.addEventListener('mousedown', (e) => arrastar(c, e, 'redim'))
       const abrir = (e: Event): void => {
         e.preventDefault()
