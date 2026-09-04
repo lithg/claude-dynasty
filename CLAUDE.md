@@ -168,21 +168,30 @@ Quando o Claude devolve uma imagem, o que chega no PTY é **texto** — o caminh
 Sixel / iTerm2 IIP / Kitty, então o `@xterm/addon-image` não teria o que renderizar: quem resolve
 é o wrapper. Config `inlineImages` (ligada).
 
-`lib/imagePaths.ts` varre o buffer do xterm atrás de caminhos e `TerminalView` desenha um cartão
-(13×6 células, encostado na margem direita) na linha onde o caminho termina; o clique abre o
-`ImageLightbox` (zoom com roda/+/−, arrastar, ←/→ entre as imagens da aba, copiar caminho, abrir
-na pasta, abrir fora, Esc fecha). Detalhes que doem se mexer:
+`lib/imagePaths.ts` varre o buffer do xterm atrás de caminhos e `TerminalView` abre um **cartão
+flutuante** sobre o terminal: barra com o nome (arrasta), canto para redimensionar, botão de tela
+cheia e de fechar. O clique na imagem abre o `ImageLightbox` (zoom com roda/+/−, arrastar, ←/→
+entre as imagens da aba, copiar caminho, abrir na pasta, abrir fora, Esc fecha). Detalhes que doem
+se mexer:
 - **Não use `registerDecoration`.** O TUI do Claude roda no **buffer alternativo**
   (`buffer.active.type === 'alternate'`) e o xterm força `display:none` em toda decoration
   enquanto ele está ativo — marker e decoration nascem, nascem **invisíveis**. Foi exatamente
-  isso que segurou a primeira versão. A camada é nossa: um `<div class="term-img-camada">`
-  absoluto dentro do `.xterm-screen`, posicionado na mão.
-- A **célula** sai de `.xterm-screen`: `clientWidth / cols` e `clientHeight / rows`. Bate exatamente
-  com o que a decoration do xterm usava (conferido: 8,25 × 18 px).
+  isso que segurou a primeira versão. A camada é nossa: um `<div class="term-card-camada">`
+  absoluto dentro do `.term-host` (que por isso é `position: relative`).
+- **Não ancore na linha.** Já foi, e ficou ruim: duas imagens em linhas vizinhas empilhavam uma
+  sobre a outra; o cartão caía na margem direita do terminal, que é onde o TUI desenha o painel de
+  `/diff`; e em janela pequena ia parar embaixo da barra do prompt. A área livre depende do que o
+  TUI está desenhando, então quem escolhe o lugar é o usuário.
+- Posição e tamanho ficam em `perProject[nome].imgCard`, gravados **ao soltar** o arrasto (não a
+  cada pixel). Cartão novo nasce nesse lugar, deslocado 28 px para cima/esquerda por cartão já
+  aberto, para dois caminhos vizinhos não nascerem um sobre o outro.
+- `prender()` mantém o cartão inteiro dentro do terminal e roda também no `ResizeObserver` — sem
+  isso ele some ao diminuir a janela.
 - O cartão **não empurra texto** — nada empurra texto no xterm. É opaco de propósito, senão o que
-  fica embaixo vaza, e por isso mora na margem direita, onde sobra espaço.
+  fica embaixo vaza.
 - Cartão é chaveado pelo **caminho**, não por marker: no buffer alternativo a "linha" é só a
-  posição na tela e o TUI reescreve tudo o tempo todo. Cada varredura reconcilia a lista.
+  posição na tela e o TUI reescreve tudo o tempo todo. Some quando o caminho sai da tela, **exceto**
+  se você arrastou (aí fica fixado), e fechar na mão não deixa voltar na mesma sessão.
 - **Apare a direita você mesmo.** O `trimRight` do `translateToString` corta *célula vazia*, não
   espaço: o TUI preenche a linha com espaços de verdade (código 32), que contam como conteúdo e
   sobrevivem. Sem aparar, a linha cortada no meio de um caminho termina em brancos, o `CORTADO` não

@@ -113,6 +113,8 @@ export interface ProjectOverride {
   label?: string
   /** abrir novas sessões já com --remote-control */
   remoteControl?: boolean
+  /** onde e de que tamanho nasce o cartão de imagem no terminal (você arrasta, ele lembra) */
+  imgCard?: { x: number; y: number; w: number; h: number }
 }
 
 export interface AppConfig {

@@ -8,11 +8,23 @@ import type { ImageThumb, TermTab } from '@shared/types'
 import type { TermColors } from '@shared/themes'
 import { registerSearch, registerTerm, setImagens, unregisterSearch, unregisterTerm } from '@/lib/terminals'
 import { acharImagens } from '@/lib/imagePaths'
-import { useStore } from '@/store'
+import { projectName, useStore } from '@/store'
 
-/** Tamanho da miniatura, em células do terminal (decoration não empurra texto: é sobreposição). */
-const MINI_COLS = 13
-const MINI_ROWS = 6
+/** Tamanho e limites do cartão flutuante, em px. */
+const CARD_W = 340
+const CARD_H = 240
+const CARD_MIN = 120
+/** Margem mínima entre o cartão e a borda do terminal. */
+const BORDA = 8
+/** Deslocamento de cada cartão novo, para dois caminhos vizinhos não nascerem um sobre o outro. */
+const CASCATA = 28
+
+export interface Caixa {
+  x: number
+  y: number
+  w: number
+  h: number
+}
 /** Quantas linhas fora da tela a varredura olha, para a miniatura já estar pronta ao rolar. */
 const MARGEM = 150
 /** Throttle da varredura: o TUI redesenha muito, não adianta varrer a cada escrita. */
@@ -271,23 +283,20 @@ export default function TerminalView({
   }, [colors])
 
   /**
-   * Miniatura clicável em cima do caminho de imagem que o Claude escreve no terminal.
+   * Cartão flutuante com a imagem que o Claude escreve como caminho no terminal.
    *
    * O Claude Code não emite Sixel/iTerm2/Kitty: o que chega no PTY é texto, não há imagem para o
-   * xterm renderizar (por isso o @xterm/addon-image não resolveria). A varredura acha o caminho
-   * no buffer e desenha um cartão por cima da linha onde ele termina.
+   * xterm renderizar. A varredura acha o caminho no buffer e abre um cartão sobre o terminal.
    *
-   * **Por que não usa `registerDecoration`:** o TUI do Claude roda no **buffer alternativo**
-   * (medido: `buffer.active.type === 'alternate'`), e o xterm força `display:none` em toda
-   * decoration enquanto o buffer alternativo está ativo. O marker e a decoration até nasciam —
-   * nasciam invisíveis. Então a camada é nossa, um `<div>` absoluto dentro do `.xterm-screen`,
-   * posicionado na mão a partir do tamanho da célula.
+   * **Por que não é ancorado na linha:** foi, e ficou ruim. Duas imagens em linhas vizinhas
+   * empilhavam uma sobre a outra, o cartão caía sempre na margem direita do terminal — que é onde
+   * o TUI desenha o painel de `/diff` — e em janela pequena ia parar embaixo da barra do prompt.
+   * A área livre muda conforme o TUI, então quem escolhe o lugar é o usuário: o cartão é
+   * **arrastável** (pela barra) e **redimensionável** (pelo canto), e a posição fica gravada em
+   * `perProject[nome].imgCard`.
    *
-   * A célula sai de `.xterm-screen`: `clientWidth / cols` e `clientHeight / rows` batem exatamente
-   * com o que a própria decoration do xterm usa (conferido: 8,25 × 18 px).
-   *
-   * O cartão é **opaco** e fica encostado na margem direita: nada empurra o texto do terminal,
-   * então ele cobre o que estiver embaixo, e à direita é onde quase sempre sobra espaço.
+   * **Por que não usa `registerDecoration`:** o TUI roda no **buffer alternativo** e o xterm força
+   * `display:none` em toda decoration enquanto ele está ativo — nasciam invisíveis.
    */
   useEffect(() => {
     const term = termRef.current
@@ -301,86 +310,156 @@ export default function TerminalView({
 
     interface Cartao {
       el: HTMLDivElement
-      /** linha absoluta no buffer onde o caminho termina */
-      linha: number
-      /** caminho já resolvido pelo main (é o que o lightbox abre) */
+      /** caminho cru do terminal (chaveia a varredura) */
+      path: string
+      /** caminho resolvido pelo main (é o que o lightbox abre) */
       real: string
+      box: Caixa
+      /** foi arrastado: não some sozinho quando o caminho sai da tela */
+      fixado: boolean
     }
-    /** chaveado pelo caminho cru do terminal; a última ocorrência na tela é a que vale */
     const cartoes = new Map<string, Cartao>()
+    /** fechados na mão: não voltam sozinhos nesta sessão */
+    const fechados = new Set<string>()
     let camada: HTMLDivElement | null = null
     let timer: ReturnType<typeof setTimeout> | null = null
     let rodando = false
     let morto = false
 
-    const tela = (): HTMLElement | null =>
-      (term.element?.querySelector('.xterm-screen') as HTMLElement | null) ?? null
-
-    /** Tamanho da célula em px. null quando a aba está escondida (largura zero). */
-    const celula = (): { w: number; h: number } | null => {
-      const t = tela()
-      if (!t || !term.cols || !term.rows) return null
-      const w = t.clientWidth / term.cols
-      const h = t.clientHeight / term.rows
-      return w > 0 && h > 0 ? { w, h } : null
-    }
-
-    const pegarCamada = (): HTMLDivElement | null => {
-      const t = tela()
-      if (!t) return null
+    const pegarCamada = (): HTMLDivElement => {
       if (!camada || !camada.isConnected) {
         camada = document.createElement('div')
-        camada.className = 'term-img-camada'
-        t.appendChild(camada)
+        camada.className = 'term-card-camada'
+        host.appendChild(camada)
       }
       return camada
     }
 
-    const posicionar = (): void => {
-      const cel = celula()
-      if (!cel) return
-      const vy = term.buffer.active.viewportY
-      for (const c of cartoes.values()) {
-        const y = c.linha - vy
-        if (y < 0 || y >= term.rows) {
-          c.el.style.display = 'none'
-          continue
-        }
-        c.el.style.display = 'block'
-        c.el.style.top = `${Math.round(y * cel.h)}px`
-        c.el.style.right = `${Math.round(cel.w)}px`
-        c.el.style.width = `${Math.round(MINI_COLS * cel.w)}px`
-        c.el.style.height = `${Math.round(MINI_ROWS * cel.h)}px`
+    /** Mantém o cartão inteiro dentro do terminal — é o que evitava ele sumir em janela pequena. */
+    const prender = (b: Caixa): Caixa => {
+      const W = host.clientWidth || CARD_W + 32
+      const H = host.clientHeight || CARD_H + 32
+      const w = Math.min(Math.max(CARD_MIN, b.w), Math.max(CARD_MIN, W - 2 * BORDA))
+      const h = Math.min(Math.max(CARD_MIN, b.h), Math.max(CARD_MIN, H - 2 * BORDA))
+      return {
+        w,
+        h,
+        x: Math.min(Math.max(BORDA, b.x), Math.max(BORDA, W - w - BORDA)),
+        y: Math.min(Math.max(BORDA, b.y), Math.max(BORDA, H - h - BORDA))
       }
     }
 
-    const publicar = (): void =>
-      setImagens(
-        tab.id,
-        [...cartoes.values()].sort((a, b) => a.linha - b.linha).map((c) => c.real)
-      )
+    const aplicar = (c: Cartao): void => {
+      c.box = prender(c.box)
+      c.el.style.left = `${c.box.x}px`
+      c.el.style.top = `${c.box.y}px`
+      c.el.style.width = `${c.box.w}px`
+      c.el.style.height = `${c.box.h}px`
+    }
 
-    const criar = (info: ImageThumb): HTMLDivElement => {
+    /** Onde nasce o próximo cartão: o último lugar que você escolheu, ou o canto inferior direito. */
+    const berco = (): Caixa => {
+      const salvo = useStore.getState().config?.perProject[projectName(cwd)]?.imgCard
+      if (salvo) return { ...salvo }
+      const W = host.clientWidth || 900
+      const H = host.clientHeight || 600
+      return { x: W - CARD_W - 24, y: H - CARD_H - 72, w: CARD_W, h: CARD_H }
+    }
+
+    const arrastar = (c: Cartao, e: MouseEvent, modo: 'mover' | 'redim'): void => {
+      e.preventDefault()
+      e.stopPropagation()
+      const x0 = e.clientX
+      const y0 = e.clientY
+      const b0 = { ...c.box }
+      c.el.classList.add('arrastando')
+      const mover = (ev: MouseEvent): void => {
+        const dx = ev.clientX - x0
+        const dy = ev.clientY - y0
+        c.box =
+          modo === 'mover' ? { ...b0, x: b0.x + dx, y: b0.y + dy } : { ...b0, w: b0.w + dx, h: b0.h + dy }
+        c.fixado = true
+        aplicar(c)
+      }
+      const soltar = (): void => {
+        window.removeEventListener('mousemove', mover)
+        window.removeEventListener('mouseup', soltar)
+        c.el.classList.remove('arrastando')
+        // grava depois de soltar, não a cada pixel
+        useStore.getState().saveImgCard(cwd, c.box)
+      }
+      window.addEventListener('mousemove', mover)
+      window.addEventListener('mouseup', soltar)
+    }
+
+    const remover = (path: string): void => {
+      const c = cartoes.get(path)
+      if (!c) return
+      c.el.remove()
+      cartoes.delete(path)
+    }
+
+    const criar = (info: ImageThumb, path: string): Cartao => {
       const el = document.createElement('div')
-      el.className = 'term-img'
+      el.className = 'term-card'
+
+      const barra = document.createElement('div')
+      barra.className = 'term-card-barra'
+      const nome = document.createElement('span')
+      nome.className = 'term-card-nome'
+      nome.textContent = info.path.split(/[\\/]/).pop() ?? info.path
       const dim = info.width ? ` · ${info.width}×${info.height}` : ''
-      el.title = [info.path, `${tamanho(info.size)}${dim}`, 'clique para abrir'].join(String.fromCharCode(10))
+      nome.title = [info.path, `${tamanho(info.size)}${dim}`].join(String.fromCharCode(10))
+      barra.appendChild(nome)
+
+      const cheia = document.createElement('button')
+      cheia.className = 'term-card-btn'
+      cheia.textContent = '⤢'
+      cheia.title = 'abrir em tela cheia'
+      const fechar = document.createElement('button')
+      fechar.className = 'term-card-btn'
+      fechar.textContent = '×'
+      fechar.title = 'fechar'
+      barra.append(cheia, fechar)
+
+      const corpo = document.createElement('div')
+      corpo.className = 'term-card-corpo'
       const img = document.createElement('img')
       img.src = info.thumb
       img.draggable = false
-      el.appendChild(img)
-      // sem isto o xterm começa a selecionar o texto que está por baixo do cartão
-      el.addEventListener('mousedown', (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-      })
-      el.addEventListener('click', (e) => {
+      img.title = 'clique para abrir em tela cheia'
+      corpo.appendChild(img)
+
+      const canto = document.createElement('div')
+      canto.className = 'term-card-canto'
+      canto.title = 'arraste para redimensionar'
+
+      el.append(barra, corpo, canto)
+
+      const c: Cartao = { el, path, real: info.path, box: { x: 0, y: 0, w: CARD_W, h: CARD_H }, fixado: false }
+
+      // o xterm começaria a selecionar texto por baixo do cartão
+      el.addEventListener('mousedown', (e) => e.stopPropagation())
+      barra.addEventListener('mousedown', (e) => arrastar(c, e, 'mover'))
+      canto.addEventListener('mousedown', (e) => arrastar(c, e, 'redim'))
+      const abrir = (e: Event): void => {
         e.preventDefault()
         e.stopPropagation()
         useStore.getState().openLightbox(tab.id, info.path, cwd)
+      }
+      img.addEventListener('click', abrir)
+      cheia.addEventListener('click', abrir)
+      fechar.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        fechados.add(path)
+        remover(path)
+        publicar()
       })
-      return el
+      return c
     }
+
+    const publicar = (): void => setImagens(tab.id, [...cartoes.values()].map((c) => c.real))
 
     const varrer = async (): Promise<void> => {
       if (morto || rodando || document.hidden) return
@@ -389,36 +468,28 @@ export default function TerminalView({
         const buf = term.buffer.active
         const de = Math.max(0, buf.viewportY - MARGEM)
         const ate = Math.min(buf.length - 1, buf.viewportY + term.rows + MARGEM)
-        const achados = acharImagens(term, de, ate)
+        const naTela = new Set(acharImagens(term, de, ate).map((a) => a.path))
 
-        // caminho repetido na tela: vale a última ocorrência
-        const desejado = new Map<string, number>()
-        for (const a of achados) desejado.set(a.path, a.linha)
+        // some quando o caminho sai da tela — a menos que você tenha arrastado o cartão
+        for (const [path, c] of [...cartoes]) if (!naTela.has(path) && !c.fixado) remover(path)
 
-        for (const [path, c] of cartoes) {
-          if (desejado.has(path)) continue
-          c.el.remove()
-          cartoes.delete(path)
-        }
-
-        for (const [path, linha] of desejado) {
+        for (const path of naTela) {
           if (morto) break
-          const existente = cartoes.get(path)
-          if (existente) {
-            existente.linha = linha
-            continue
-          }
+          if (cartoes.has(path) || fechados.has(path)) continue
           if (cacheThumb.get(`${cwd}|${path}`) === null) continue // já perguntamos: não existe
           const info = await miniatura(path, cwd)
           if (!info || morto || cartoes.has(path)) continue
-          const cam = pegarCamada()
-          if (!cam) continue
-          const el = criar(info)
-          cam.appendChild(el)
-          cartoes.set(path, { el, linha, real: info.path })
+          const c = criar(info, path)
+          // cartão novo nasce deslocado para cima/esquerda: dois caminhos em linhas vizinhas
+          // empilhavam um em cima do outro na versão ancorada na linha
+          const b = berco()
+          const k = cartoes.size
+          c.box = { ...b, x: b.x - k * CASCATA, y: b.y - k * CASCATA }
+          pegarCamada().appendChild(c.el)
+          cartoes.set(path, c)
+          aplicar(c)
         }
 
-        posicionar()
         publicar()
       } finally {
         rodando = false
@@ -435,24 +506,27 @@ export default function TerminalView({
       }, ESPERA)
     }
 
+    const recolocar = (): void => {
+      for (const c of cartoes.values()) aplicar(c)
+    }
+
     const off = [
       term.onWriteParsed(agendar),
-      // rolar não muda o que existe, só onde desenhar: reposiciona na hora e revarre depois
-      term.onScroll(() => {
-        posicionar()
-        agendar()
-      }),
+      term.onScroll(agendar),
       term.onResize(() => {
-        posicionar()
+        recolocar()
         agendar()
       })
     ]
+    const ro = new ResizeObserver(recolocar)
+    ro.observe(host)
     document.addEventListener('visibilitychange', agendar)
     agendar()
 
     return () => {
       morto = true
       if (timer) clearTimeout(timer)
+      ro.disconnect()
       document.removeEventListener('visibilitychange', agendar)
       for (const d of off) d.dispose()
       for (const c of cartoes.values()) c.el.remove()

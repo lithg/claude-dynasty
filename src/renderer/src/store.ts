@@ -76,6 +76,7 @@ interface State {
   setFilter: (v: string) => void
   /** Ctrl+roda no terminal: muda a fonte só deste projeto e guarda no config */
   zoomProject: (projectPath: string, delta: number) => void
+  saveImgCard: (projectPath: string, box: { x: number; y: number; w: number; h: number }) => void
   togglePin: (name: string) => Promise<void>
   toggleHidden: (name: string) => Promise<void>
 }
@@ -86,6 +87,7 @@ export function projectName(path: string): string {
 }
 
 let zoomTimer: ReturnType<typeof setTimeout> | null = null
+let cardTimer: ReturnType<typeof setTimeout> | null = null
 /** projetos com sessão sendo aberta agora: dois cliques rápidos não abrem duas sessões */
 const abrindo = new Set<string>()
 /** gravação adiada do documento aberto (auto save) */
@@ -379,6 +381,20 @@ export const useStore = create<State>((set, get) => ({
     if (zoomTimer) clearTimeout(zoomTimer)
     zoomTimer = setTimeout(() => {
       zoomTimer = null
+      void window.api.config.set({ perProject: get().config!.perProject })
+    }, 400)
+  },
+
+  /** posição/tamanho do cartão de imagem, gravados depois do arrasto (não a cada pixel) */
+  saveImgCard: (projectPath, box) => {
+    const cfg = get().config
+    if (!cfg) return
+    const name = projectName(projectPath)
+    const perProject = { ...cfg.perProject, [name]: { ...(cfg.perProject[name] ?? {}), imgCard: box } }
+    set({ config: { ...cfg, perProject } })
+    if (cardTimer) clearTimeout(cardTimer)
+    cardTimer = setTimeout(() => {
+      cardTimer = null
       void window.api.config.set({ perProject: get().config!.perProject })
     }, 400)
   },
