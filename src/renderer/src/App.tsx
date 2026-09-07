@@ -11,6 +11,7 @@ import TerminalView from './components/TerminalView'
 import SuggestChip from './components/SuggestChip'
 import ImageLightbox from './components/ImageLightbox'
 import ProjectHome from './components/ProjectHome'
+import SecurityView from './components/SecurityView'
 import ProjectPanel from './components/ProjectPanel'
 import SettingsModal from './components/SettingsModal'
 import CommandPalette from './components/CommandPalette'
@@ -64,6 +65,7 @@ function Main(): React.JSX.Element {
   const tabs = useStore((s) => s.tabs)
   const activeTabId = useStore((s) => s.activeTabId)
   const activeDoc = useStore((s) => s.activeDoc)
+  const securityProject = useStore((s) => s.securityProject)
   const activeProject = useStore((s) => s.activeProject)
   const panelOpen = useStore((s) => s.panelOpen)
   const systemDark = useSystemDark()
@@ -91,12 +93,25 @@ function Main(): React.JSX.Element {
     })
     const offCfg = window.api.config.onUpdate((config) => useStore.setState({ config }))
     const offTabs = window.api.tabs.onUpdate((tab) => useStore.getState().updateTab(tab))
+    // aba criada pelo main (pentest agendado): entra na lista sem roubar o foco de onde você está
+    const offNew = window.api.tabs.onNew((tab) => {
+      const s = useStore.getState()
+      if (s.tabs.some((t) => t.id === tab.id)) return
+      useStore.setState({ tabs: [...s.tabs, tab] })
+    })
     const offTray = window.api.tray.onRender((percent) => window.api.tray.rendered(renderTrayIcon(percent)))
     // o Claude (ou o Explorer) mexeu num documento: recarrega a lista e o que está aberto
     const offDocs = window.api.docs.onChanged(() => {
       const s = useStore.getState()
       void s.loadDocs()
       if (s.activeDoc && !s.docSaving) void s.openDoc(s.activeDoc)
+    })
+    // um relatório de segurança apareceu/mudou (o Claude terminou de gravar): recarrega a lista
+    const offSec = window.api.security.onChanged(() => {
+      const s = useStore.getState()
+      // atualiza a view de Segurança aberta e também o badge da página do projeto
+      const alvo = s.securityProject ?? s.activeProject
+      if (alvo) void s.loadScans(alvo)
     })
     // Escondido na bandeja/minimizado: para de animar (CSS) e de rodar git a cada 30s.
     const onVis = (): void => {
@@ -116,8 +131,10 @@ function Main(): React.JSX.Element {
       offUsage()
       offCfg()
       offTabs()
+      offNew()
       offTray()
       offDocs()
+      offSec()
       document.removeEventListener('visibilitychange', onVis)
       clearInterval(detailsTimer)
     }
@@ -193,13 +210,13 @@ function Main(): React.JSX.Element {
       <TopBar />
       <Sidebar />
       <main className="main">
-        {/* o documento só esconde o terminal: desmontar mataria o xterm e o histórico da aba */}
-        {!activeDoc && <TabBar />}
+        {/* o documento e a Segurança só escondem o terminal: desmontar mataria o xterm e o histórico */}
+        {!activeDoc && !securityProject && <TabBar />}
         {/* a única caixa de digitação é a do próprio Claude: a sugestão vem numa faixa fina */}
-        {!activeDoc && activeTab && !activeTab.suspended && activeTab.exited == null && (
+        {!activeDoc && !securityProject && activeTab && !activeTab.suspended && activeTab.exited == null && (
           <SuggestChip key={activeTab.id} tab={activeTab} />
         )}
-        <div className="term-area" style={activeDoc ? { display: 'none' } : undefined}>
+        <div className="term-area" style={activeDoc || securityProject ? { display: 'none' } : undefined}>
           {tabs
             .filter((t) => !t.suspended)
             .map((t) => (
@@ -234,6 +251,7 @@ function Main(): React.JSX.Element {
           {!activeTab && <ProjectHome />}
         </div>
         {activeDoc && <DocView />}
+        {securityProject && !activeDoc && <SecurityView />}
       </main>
       {panelOpen && <ProjectPanel />}
       <SettingsModal />

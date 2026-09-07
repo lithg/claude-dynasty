@@ -74,6 +74,7 @@ export default function Sidebar(): React.JSX.Element {
   const filter = useStore((s) => s.filter)
   const showHidden = useStore((s) => s.showHidden)
   const selectProject = useStore((s) => s.selectProject)
+  const openSecurity = useStore((s) => s.openSecurity)
   const setFilter = useStore((s) => s.setFilter)
   const setShowHidden = useStore((s) => s.setShowHidden)
   const togglePin = useStore((s) => s.togglePin)
@@ -330,6 +331,14 @@ export default function Sidebar(): React.JSX.Element {
                 {menu.project.hidden ? 'Mostrar' : 'Ocultar'}
               </button>
               <hr />
+              <button
+                onClick={() => {
+                  void openSecurity(menu.project!.path)
+                  setMenu(null)
+                }}
+              >
+                🛡 Segurança
+              </button>
               <button
                 onClick={() => {
                   void window.api.projects.openExplorer(menu.project!.path)

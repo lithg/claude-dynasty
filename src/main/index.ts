@@ -26,6 +26,19 @@ import { PtyManager } from './pty'
 import { resolveClaudeBin } from './claudeBin'
 import { fetchUsage } from './usage'
 import { imageFull, imageThumb, openImage, revealImage } from './images'
+import {
+  buildPrompt,
+  createScan,
+  deleteScan,
+  exportPdf,
+  lastScanAt,
+  listScans,
+  readScan,
+  setFindingStatus,
+  stopWatchSecurity,
+  watchSecurity
+} from './security'
+import type { ScanMode, StartScanOpts } from '@shared/types'
 
 let win: BrowserWindow | null = null
 let popup: BrowserWindow | null = null
@@ -358,7 +371,7 @@ function restoreTabs(): void {
 /** Monta o comando do Claude para um projeto (compartilhado por abrir e retomar). */
 function claudeCommand(
   projectPath: string,
-  opts: { resume?: string; continueLast?: boolean }
+  opts: { resume?: string; continueLast?: boolean; initialPrompt?: string }
 ): { file: string; args: string[]; sessionId?: string } {
   const cfg = getConfig()
   const name = basename(projectPath)
@@ -385,12 +398,88 @@ function claudeCommand(
   }
   if (ov.remoteControl ?? cfg.remoteControl) args.push('--remote-control', name)
   args.push(...splitArgs(cfg.extraArgs), ...splitArgs(ov.extraArgs ?? ''))
+  // Mensagem inicial vai como argumento posicional (último de todos): o claude abre já com ela
+  // enviada. É mais robusto num processo recém-nascido do que cronometrar um paste no TUI.
+  if (opts.initialPrompt) args.push(opts.initialPrompt)
   return { file: bin.file, args, sessionId }
 }
 
 function shellCommand(): { file: string; args: string[] } {
   const file = getConfig().shell || 'powershell.exe'
   return { file, args: /powershell|pwsh/i.test(file) ? ['-NoLogo'] : [] }
+}
+
+/**
+ * Abre uma sessão de pentest (aba do Claude com o prompt do manual). Usada tanto pelo botão
+ * (`security:start`, que devolve a aba para o renderer) quanto pelo agendador (que passa
+ * `agendado` e usa `tabs:new` para a aba aparecer, já que não veio de um clique).
+ */
+function spawnSecurityScan(
+  projectPath: string,
+  mode: ScanMode,
+  extra: { prodUrl?: string; custom?: string; cols?: number; rows?: number; agendado?: boolean } = {}
+): TermTab {
+  const scan = createScan(projectPath, mode)
+  const prompt = buildPrompt({ mode, prodUrl: extra.prodUrl, custom: extra.custom, reportPath: scan.reportPath })
+  const c = claudeCommand(projectPath, { initialPrompt: prompt })
+  const id = randomUUID()
+  const pid = ptys.spawn(id, { file: c.file, args: c.args, cwd: projectPath, cols: extra.cols, rows: extra.rows })
+  const tab: TermTab = {
+    id,
+    projectPath,
+    kind: 'claude',
+    title: `🛡 pentest ${mode}${extra.agendado ? ' (agendado)' : ''}`,
+    sessionId: c.sessionId,
+    createdAt: Date.now(),
+    pid
+  }
+  tabs.set(id, tab)
+  persistTabs()
+  if (extra.agendado) send('tabs:new', tab)
+  return tab
+}
+
+/**
+ * Agendamento de verificações. "Vencida" = passou `everyDays` desde a última verificação (ou nunca
+ * rodou). Ao vencer: se `auto`, dispara sozinho; senão, notifica uma vez. O `schedNotified` evita
+ * repetir na mesma janela de vencimento (a cada tick de 60 min).
+ */
+const schedNotified = new Map<string, number>()
+
+function checkSecuritySchedules(): void {
+  const cfg = getConfig()
+  const now = Date.now()
+  for (const [name, ov] of Object.entries(cfg.perProject)) {
+    const sch = ov.securitySchedule
+    if (!sch || !sch.everyDays) continue
+    const projectPath = join(cfg.rootDir, name)
+    if (!existsSync(projectPath)) continue
+    const last = lastScanAt(projectPath)
+    const dueAt = last ? last + sch.everyDays * 86_400_000 : 0
+    if (last && now < dueAt) continue // ainda no prazo
+    if (schedNotified.get(name) === dueAt) continue // já tratado nesta janela
+    schedNotified.set(name, dueAt)
+    if (sch.auto) {
+      try {
+        spawnSecurityScan(projectPath, sch.mode, { prodUrl: sch.prodUrl, agendado: true })
+        notifySecurity(name, 'Uma verificação de segurança agendada começou.')
+      } catch {
+        /* spawn falhou: tenta de novo no próximo tick (tira do mapa) */
+        schedNotified.delete(name)
+      }
+    } else {
+      const label = cfg.perProject[name]?.label || name
+      notifySecurity(name, `A verificação de segurança de ${label} está vencida — abra a Segurança para rodar.`)
+    }
+  }
+}
+
+function notifySecurity(name: string, body: string): void {
+  if (!Notification.isSupported()) return
+  const label = getConfig().perProject[name]?.label || name
+  const n = new Notification({ title: `${label} — Segurança`, body })
+  n.on('click', showWindow)
+  n.show()
 }
 
 /* ---------------- iniciar com o Windows ---------------- */
@@ -476,6 +565,18 @@ function registerIpc(): void {
 
   ipcMain.handle('sessions:live', () => readLiveSessions())
   ipcMain.handle('sessions:history', (_e, path: string) => readHistory(path))
+
+  /* segurança: pentests assistidos pelo Claude, por projeto */
+  ipcMain.handle('security:list', (_e, projectPath: string) => listScans(projectPath))
+  ipcMain.handle('security:read', (_e, reportPath: string) => readScan(reportPath))
+  ipcMain.handle('security:setStatus', (_e, reportPath: string, id: string, status: string) =>
+    setFindingStatus(reportPath, id, status)
+  )
+  ipcMain.handle('security:delete', (_e, reportPath: string) => deleteScan(reportPath))
+  ipcMain.handle('security:exportPdf', (_e, reportPath: string) => exportPdf(reportPath))
+  ipcMain.handle('security:start', (_e, opts: StartScanOpts): TermTab =>
+    spawnSecurityScan(opts.projectPath, opts.mode, { prodUrl: opts.prodUrl, custom: opts.custom, cols: opts.cols, rows: opts.rows })
+  )
 
   ipcMain.handle('usage:get', (_e, force?: boolean) => refreshUsage(Boolean(force)))
 
@@ -613,7 +714,11 @@ function registerIpc(): void {
   ipcMain.handle('tabs:list', () => Array.from(tabs.values()))
 
   ipcMain.handle('pty:spawnClaude', (_e, opts: SpawnClaudeOpts): TermTab => {
-    const c = claudeCommand(opts.projectPath, opts)
+    const c = claudeCommand(opts.projectPath, {
+      resume: opts.resume,
+      continueLast: opts.continueLast,
+      initialPrompt: opts.initialPrompt
+    })
     const id = randomUUID()
     const pid = ptys.spawn(id, {
       file: c.file,
@@ -748,6 +853,10 @@ app.whenReady().then(() => {
   setInterval(() => void refreshUsage(), 3 * 60_000)
 
   watchDocs(() => send('docs:changed'))
+  watchSecurity(() => send('security:changed'))
+  // agendamento de pentests: confere logo após subir (dá 20s para a janela assentar) e a cada hora
+  setTimeout(() => checkSecuritySchedules(), 20_000)
+  setInterval(() => checkSecuritySchedules(), 60 * 60_000)
 
   watcher = new LiveSessionWatcher(
     (sessions) => {
@@ -781,6 +890,7 @@ app.on('before-quit', () => {
   quitting = true
   persistTabs(true)
   stopWatchDocs()
+  stopWatchSecurity()
   watcher?.stop()
   ptys?.killAll()
 })

@@ -3,6 +3,7 @@ import { useStore } from '@/store'
 import { sessionsFor } from './Sidebar'
 import { relTime, STACK_LABEL } from '@/lib/format'
 import { render } from '@/lib/markdown'
+import { ORDEM_SEV, SEV } from '@/lib/severity'
 
 /**
  * Página inicial de um projeto sem sessão aberta.
@@ -20,9 +21,11 @@ export default function ProjectHome(): React.JSX.Element {
   const live = useStore((s) => s.live)
   const tabs = useStore((s) => s.tabs)
   const config = useStore((s) => s.config)
+  const scans = useStore((s) => s.scans)
   const abrindo = useStore((s) => s.abrindo)
   const openClaude = useStore((s) => s.openClaude)
   const openShell = useStore((s) => s.openShell)
+  const openSecurity = useStore((s) => s.openSecurity)
   const resumeTab = useStore((s) => s.resumeTab)
   const setActiveTab = useStore((s) => s.setActiveTab)
   const mdRef = useRef<HTMLDivElement>(null)
@@ -58,6 +61,12 @@ export default function ProjectHome(): React.JSX.Element {
   const nome = (p && config?.perProject[p.name]?.label) || p?.name || activeProject
   const carregando = abrindo.includes(activeProject)
   const cmd = d?.claudeMd
+
+  // última verificação de segurança com relatório (para o badge)
+  const ultimoScan = (scans[activeProject] ?? []).find((s) => s.hasReport)
+  const abertas = ultimoScan?.openCounts
+  const totalAbertas = abertas ? ORDEM_SEV.reduce((a, k) => a + (abertas[k] ?? 0), 0) : 0
+  const graves = abertas ? (abertas.critica ?? 0) + (abertas.alta ?? 0) : 0
 
   return (
     <div className="home">
@@ -109,6 +118,35 @@ export default function ProjectHome(): React.JSX.Element {
           />
         </div>
 
+        {ultimoScan && (
+          <button
+            className={`home-seg ${graves > 0 ? 'grave' : totalAbertas > 0 ? 'atencao' : 'ok'}`}
+            onClick={() => void openSecurity(activeProject)}
+            title="abrir a Segurança do projeto"
+          >
+            <span className="home-seg-escudo">🛡</span>
+            {totalAbertas === 0 ? (
+              <span className="home-seg-txt">Última verificação sem vulnerabilidades abertas</span>
+            ) : (
+              <>
+                <span className="home-seg-txt">
+                  {totalAbertas} vulnerabilidade{totalAbertas > 1 ? 's' : ''} aberta{totalAbertas > 1 ? 's' : ''}
+                </span>
+                <span className="home-seg-chips">
+                  {ORDEM_SEV.map((k) =>
+                    abertas?.[k] ? (
+                      <span key={k} className={`sev-chip sev-${k}`} title={SEV[k].label}>
+                        {abertas[k]}
+                      </span>
+                    ) : null
+                  )}
+                </span>
+              </>
+            )}
+            <span className="muted small">{relTime(ultimoScan.finishedAt ?? ultimoScan.startedAt)} · ver</span>
+          </button>
+        )}
+
         <div className="home-acoes">
           <button className="btn primario" disabled={carregando} onClick={() => void openClaude(activeProject)}>
             Abrir sessão do Claude
@@ -129,6 +167,9 @@ export default function ProjectHome(): React.JSX.Element {
           </button>
           <button className="btn ghost" onClick={() => void window.api.projects.openVsCode(activeProject)}>
             VS Code
+          </button>
+          <button className="btn ghost" title="Rodar um pentest e ver o relatório" onClick={() => void openSecurity(activeProject)}>
+            🛡 Segurança
           </button>
         </div>
 

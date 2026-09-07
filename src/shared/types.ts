@@ -115,6 +115,8 @@ export interface ProjectOverride {
   remoteControl?: boolean
   /** onde e de que tamanho nasce o cartão de imagem no terminal (você arrasta, ele lembra) */
   imgCard?: { x: number; y: number; w: number; h: number }
+  /** agendamento de verificações de segurança deste projeto */
+  securitySchedule?: SecuritySchedule
 }
 
 export interface AppConfig {
@@ -177,6 +179,77 @@ export interface SpawnClaudeOpts {
   projectPath: string
   resume?: string
   continueLast?: boolean
+  cols?: number
+  rows?: number
+  /** mensagem já enviada à sessão recém-aberta (passada como argumento posicional do claude) */
+  initialPrompt?: string
+}
+
+/* ---------------- Segurança (pentests) ---------------- */
+
+export type Severity = 'critica' | 'alta' | 'media' | 'baixa' | 'info'
+export type ScanMode = 'basico' | 'completo' | 'customizado'
+export type FindingStatus = 'aberto' | 'corrigido' | 'aceito' | 'falso-positivo'
+
+/** Uma vulnerabilidade no relatório (o Claude escreve isto seguindo o manual). */
+export interface SecurityFinding {
+  id: string
+  titulo: string
+  severidade: Severity
+  categoria?: string
+  /** arquivo:linha, endpoint, ou dependência@versão */
+  local?: string
+  descricao: string
+  evidencia?: string
+  correcao?: string
+  referencias?: string[]
+  status?: FindingStatus
+  /** vetor CVSS 3.1 (ex.: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"); o app calcula a nota */
+  cvss?: string
+}
+
+/** Agendamento de verificações de um projeto (guardado em perProject[nome].securitySchedule). */
+export interface SecuritySchedule {
+  /** intervalo em dias entre verificações recomendadas */
+  everyDays: number
+  mode: ScanMode
+  prodUrl?: string
+  /** rodar sozinho quando vencer (senão só notifica) */
+  auto?: boolean
+}
+
+/** O relatório inteiro — arquivo `relatorio.json` de uma verificação. */
+export interface SecurityReport {
+  versao: number
+  projeto: string
+  modo: ScanMode | string
+  urlProducao?: string
+  geradoEm: string
+  resumo?: string
+  findings: SecurityFinding[]
+}
+
+/** Resumo de uma verificação para a lista/histórico (não carrega os findings inteiros). */
+export interface ScanInfo {
+  id: string
+  projectPath: string
+  modo: string
+  reportPath: string
+  startedAt: number
+  finishedAt?: number
+  hasReport: boolean
+  /** total de findings por severidade (todos os status) */
+  counts?: Record<Severity, number>
+  /** findings ainda abertos por severidade (exclui corrigido/aceito/falso-positivo) */
+  openCounts?: Record<Severity, number>
+  resumo?: string
+}
+
+export interface StartScanOpts {
+  projectPath: string
+  mode: ScanMode
+  prodUrl?: string
+  custom?: string
   cols?: number
   rows?: number
 }

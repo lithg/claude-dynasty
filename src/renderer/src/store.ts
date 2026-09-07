@@ -6,6 +6,10 @@ import type {
   LiveSession,
   ProjectDetails,
   ProjectInfo,
+  ScanInfo,
+  ScanMode,
+  SecurityFinding,
+  SecuritySchedule,
   TermTab,
   UsageInfo
 } from '@shared/types'
@@ -26,6 +30,10 @@ interface State {
   activeDoc: string | null
   docText: string
   docSaving: boolean
+  /** projeto com a view de Segurança aberta na área central (esconde o terminal, como o doc) */
+  securityProject: string | null
+  /** verificações de segurança por projeto (histórico + relatórios) */
+  scans: Record<string, ScanInfo[]>
   settingsOpen: boolean
   paletteOpen: boolean
   /** imagem aberta em tela cheia (veio de uma miniatura do terminal) */
@@ -46,7 +54,10 @@ interface State {
   saveConfig: (patch: Partial<AppConfig>) => Promise<void>
 
   selectProject: (path: string) => Promise<void>
-  openClaude: (path: string, opts?: { resume?: string; continueLast?: boolean }) => Promise<void>
+  openClaude: (
+    path: string,
+    opts?: { resume?: string; continueLast?: boolean; initialPrompt?: string }
+  ) => Promise<void>
   openShell: (path: string, command?: string) => Promise<void>
   closeTab: (id: string) => Promise<void>
   /** dá processo a uma aba suspensa/encerrada (claude --resume) */
@@ -67,6 +78,18 @@ interface State {
   reorderProjects: (de: string, para: string) => Promise<void>
   setProjectLabel: (name: string, label: string) => Promise<void>
   createProject: (nome: string) => Promise<void>
+
+  /** abre a view de Segurança de um projeto (carrega o histórico de verificações) */
+  openSecurity: (path: string) => Promise<void>
+  closeSecurity: () => void
+  loadScans: (path: string) => Promise<void>
+  /** abre uma sessão de pentest (aba visível) no modo escolhido */
+  startScan: (path: string, mode: ScanMode, prodUrl?: string, custom?: string) => Promise<void>
+  /** abre uma sessão nova para corrigir uma vulnerabilidade do relatório */
+  resolveVulnerability: (path: string, reportPath: string, finding: SecurityFinding) => Promise<void>
+  setFindingStatus: (path: string, reportPath: string, id: string, status: string) => Promise<void>
+  /** grava (ou remove, com null) o agendamento de segurança de um projeto */
+  setSchedule: (name: string, sched: SecuritySchedule | null) => Promise<void>
 
   setSettingsOpen: (v: boolean) => void
   setFirstRun: (v: boolean) => void
@@ -136,6 +159,8 @@ export const useStore = create<State>((set, get) => ({
   activeDoc: null,
   docText: '',
   docSaving: false,
+  securityProject: null,
+  scans: {},
   settingsOpen: false,
   paletteOpen: false,
   lightbox: null,
@@ -203,9 +228,10 @@ export const useStore = create<State>((set, get) => ({
    */
   selectProject: async (path) => {
     const { tabs } = get()
-    set({ activeProject: path, activeDoc: null })
+    set({ activeProject: path, activeDoc: null, securityProject: null })
     void get().loadDetails(path, true)
     void get().loadHistory(path)
+    void get().loadScans(path)
     // Só conta aba com processo de pé: suspensa (restaurada) ou encerrada não vale como sessão.
     const vivas = tabs.filter((t) => t.projectPath === path && !t.suspended && t.exited == null)
     const atual = vivas.find((t) => t.id === get().activeTabId)
@@ -265,7 +291,7 @@ export const useStore = create<State>((set, get) => ({
 
   setActiveTab: (id) => {
     const t = get().tabs.find((x) => x.id === id)
-    set({ activeTabId: id, activeProject: t?.projectPath ?? get().activeProject, activeDoc: null })
+    set({ activeTabId: id, activeProject: t?.projectPath ?? get().activeProject, activeDoc: null, securityProject: null })
     if (t) {
       void get().loadDetails(t.projectPath)
       void get().loadHistory(t.projectPath)
@@ -304,7 +330,7 @@ export const useStore = create<State>((set, get) => ({
       return
     }
     const texto = await window.api.docs.read(path).catch(() => '')
-    set({ activeDoc: path, docText: texto, docSaving: false })
+    set({ activeDoc: path, docText: texto, docSaving: false, securityProject: null })
   },
 
   setDocText: (text, salvarJa) => {
@@ -380,6 +406,69 @@ export const useStore = create<State>((set, get) => ({
     const dir = await window.api.projects.create(nome)
     await get().loadProjects()
     await get().selectProject(dir)
+  },
+
+  openSecurity: async (path) => {
+    set({ securityProject: path, activeProject: path, activeDoc: null })
+    void get().loadDetails(path)
+    await get().loadScans(path)
+  },
+
+  closeSecurity: () => set({ securityProject: null }),
+
+  loadScans: async (path) => {
+    const scans = await window.api.security.list(path)
+    set((s) => ({ scans: { ...s.scans, [path]: scans } }))
+  },
+
+  startScan: async (path, mode, prodUrl, custom) => {
+    if (get().abrindo.includes(path)) return
+    set((s) => ({ abrindo: [...s.abrindo, path] }))
+    try {
+      await pintar()
+      const tab = await window.api.security.start({ projectPath: path, mode, prodUrl, custom })
+      // mostra a sessão rodando: some da view de Segurança e cai na aba do pentest
+      set((s) => ({
+        tabs: [...s.tabs, tab],
+        activeTabId: tab.id,
+        activeProject: path,
+        securityProject: null
+      }))
+    } finally {
+      set((s) => ({ abrindo: s.abrindo.filter((p) => p !== path) }))
+    }
+  },
+
+  resolveVulnerability: async (path, reportPath, f) => {
+    const prompt = [
+      'Corrija esta vulnerabilidade encontrada num pentest de segurança deste projeto.',
+      `Título: ${f.titulo}`,
+      `Severidade: ${f.severidade}`,
+      f.categoria ? `Categoria: ${f.categoria}` : '',
+      f.local ? `Local: ${f.local}` : '',
+      `Descrição: ${f.descricao}`,
+      f.evidencia ? `Evidência: ${f.evidencia}` : '',
+      f.correcao ? `Correção sugerida no relatório: ${f.correcao}` : '',
+      '',
+      'Analise, aplique a correção e valide. Ao terminar, atualize o status desta vulnerabilidade',
+      `para "corrigido" no relatório JSON em ${reportPath} (no finding cujo id é "${f.id}").`
+    ]
+      .filter(Boolean)
+      .join('\n')
+    await get().openClaude(path, { initialPrompt: prompt })
+  },
+
+  setFindingStatus: async (path, reportPath, id, status) => {
+    await window.api.security.setStatus(reportPath, id, status)
+    await get().loadScans(path)
+  },
+
+  setSchedule: async (name, sched) => {
+    const cfg = get().config
+    if (!cfg) return
+    const atual = cfg.perProject[name] ?? {}
+    const proximo = { ...atual, securitySchedule: sched ?? undefined }
+    await get().saveConfig({ perProject: { ...cfg.perProject, [name]: proximo } })
   },
 
   setSettingsOpen: (v) => set({ settingsOpen: v }),

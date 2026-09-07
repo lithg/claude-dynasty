@@ -8,8 +8,11 @@ import type {
   LiveSession,
   ProjectDetails,
   ProjectInfo,
+  ScanInfo,
+  SecurityReport,
   SpawnClaudeOpts,
   SpawnShellOpts,
+  StartScanOpts,
   TermTab,
   UsageInfo
 } from '@shared/types'
@@ -52,6 +55,16 @@ const api = {
     history: (path: string): Promise<HistorySession[]> => ipcRenderer.invoke('sessions:history', path),
     onLive: (cb: (sessions: LiveSession[]) => void): Unsub => on<[LiveSession[]]>('sessions:live', cb)
   },
+  security: {
+    list: (projectPath: string): Promise<ScanInfo[]> => ipcRenderer.invoke('security:list', projectPath),
+    read: (reportPath: string): Promise<SecurityReport | null> => ipcRenderer.invoke('security:read', reportPath),
+    start: (opts: StartScanOpts): Promise<TermTab> => ipcRenderer.invoke('security:start', opts),
+    setStatus: (reportPath: string, id: string, status: string): Promise<SecurityReport | null> =>
+      ipcRenderer.invoke('security:setStatus', reportPath, id, status),
+    remove: (reportPath: string): Promise<void> => ipcRenderer.invoke('security:delete', reportPath),
+    exportPdf: (reportPath: string): Promise<string | null> => ipcRenderer.invoke('security:exportPdf', reportPath),
+    onChanged: (cb: () => void): Unsub => on<[]>('security:changed', cb)
+  },
   usage: {
     get: (force = false): Promise<UsageInfo> => ipcRenderer.invoke('usage:get', force),
     onUpdate: (cb: (u: UsageInfo | null) => void): Unsub => on<[UsageInfo | null]>('usage:update', cb)
@@ -84,7 +97,9 @@ const api = {
   },
   tabs: {
     list: (): Promise<TermTab[]> => ipcRenderer.invoke('tabs:list'),
-    onUpdate: (cb: (tab: TermTab) => void): Unsub => on<[TermTab]>('tabs:update', cb)
+    onUpdate: (cb: (tab: TermTab) => void): Unsub => on<[TermTab]>('tabs:update', cb),
+    /** aba criada pelo main (ex.: pentest agendado) — o renderer ainda não a conhece */
+    onNew: (cb: (tab: TermTab) => void): Unsub => on<[TermTab]>('tabs:new', cb)
   },
   pty: {
     spawnClaude: (opts: SpawnClaudeOpts): Promise<TermTab> => ipcRenderer.invoke('pty:spawnClaude', opts),
