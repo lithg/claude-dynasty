@@ -468,6 +468,9 @@ function registerIpc(): void {
     const dir = join(getConfig().rootDir, limpo)
     if (existsSync(dir)) throw new Error('já existe uma pasta com esse nome')
     mkdirSync(dir, { recursive: true })
+    // Pasta vazia não tem nenhum dos MARKERS do scan (projects.ts), então sumiria da lista
+    // assim que o app reabrisse. O CLAUDE.md inicial é o marcador e já serve de ficha.
+    writeFileSync(join(dir, 'CLAUDE.md'), `# ${limpo}\n\n## O que é\n\n`, 'utf-8')
     return dir
   })
 
