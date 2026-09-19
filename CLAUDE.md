@@ -321,6 +321,13 @@ por isso a paleta é **Ctrl+K**. Ctrl+K, Ctrl+F, Ctrl+I, Ctrl+E, Ctrl+Espaço e 
 produzem nenhuma resposta do TUI — livres para o wrapper. Ctrl+G abre o editor externo e Shift+Tab
 cicla os modos: não usar.
 
+## Copiar ao selecionar
+Soltar o mouse com texto selecionado no terminal **já copia para o clipboard** (estilo
+PuTTY/Linux) — Ctrl+C/Ctrl+Shift+C continuam funcionando, a seleção fica na tela. O `mouseup`
+fica na **janela** (o arrasto pode terminar fora do terminal) e uma flag armada no `mousedown`
+do `.term-host` garante que só a aba onde a seleção **começou** copia — sem ela, uma aba
+escondida com seleção antiga copiaria em qualquer clique do app.
+
 ## Busca no terminal
 Ctrl+F abre a barra (`@xterm/addon-search`): Enter próximo, Shift+Enter anterior, Esc fecha,
 contador `n/total`. `matchBackground`/`activeMatchBackground` só aceitam `#RRGGBB` (nada de rgba).

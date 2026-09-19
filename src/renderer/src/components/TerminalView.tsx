@@ -206,6 +206,23 @@ export default function TerminalView({
       return true
     })
 
+    // Copiar ao selecionar: soltar o mouse com texto selecionado já manda para o clipboard,
+    // sem Ctrl+C — e a seleção continua na tela. O mouseup fica na janela porque o arrasto
+    // pode terminar fora do terminal; a flag garante que só copia quando a seleção começou
+    // aqui (senão uma aba escondida com seleção antiga copiaria em qualquer clique do app).
+    let selecionando = false
+    const onSelMouseDown = (): void => {
+      selecionando = true
+    }
+    const onSelMouseUp = (): void => {
+      if (!selecionando) return
+      selecionando = false
+      const sel = term.getSelection()
+      if (sel) void window.api.app.copy(sel)
+    }
+    el.addEventListener('mousedown', onSelMouseDown)
+    window.addEventListener('mouseup', onSelMouseUp)
+
     // Ctrl + roda do mouse = zoom só deste terminal (o xterm usaria a roda para rolar,
     // por isso o listener é em captura e barra o evento antes dele).
     let badgeTimer: ReturnType<typeof setTimeout> | null = null
@@ -263,6 +280,8 @@ export default function TerminalView({
       ro.disconnect()
       cancelAnimationFrame(raf)
       el.removeEventListener('wheel', onWheel, { capture: true })
+      el.removeEventListener('mousedown', onSelMouseDown)
+      window.removeEventListener('mouseup', onSelMouseUp)
       if (badgeTimer) clearTimeout(badgeTimer)
       el.removeEventListener('dragover', onDragOver)
       el.removeEventListener('drop', onDrop)
